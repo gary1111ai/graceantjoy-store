@@ -95,13 +95,130 @@ $('productForm').addEventListener('submit',async e=>{
  products.unshift({id:'p'+Date.now(),name:d.get('name').trim(),style:d.get('style').trim(),material:d.get('material'),brand:d.get('brand'),models,price:Number(d.get('price')),salePrice:sale===''?null:Number(sale),stock:Number(d.get('stock')),image,description:d.get('description').trim(),demo:false});
  save();f.reset();render();alert('Product added in this browser only. It is not published to other visitors.');
 });
-$('checkout').addEventListener('submit',e=>{
- e.preventDefault();if(!cart.length){alert('Your bag is empty.');return}
- for(const x of cart){const p=products.find(y=>y.id===x.id);if(!p||p.stock<x.qty){alert('Please review the stock for your items.');return}}
- const d=new FormData(e.currentTarget);const total=cart.reduce((sum,x)=>sum+price(products.find(p=>p.id===x.id))*x.qty,0);
- orders.push({id:'GJ-'+Date.now().toString().slice(-7),name:d.get('name'),phone:d.get('phone'),address:d.get('address'),payment:d.get('payment'),total,items:cart.map(x=>({...x})),created:new Date().toISOString()});
- cart.forEach(x=>{const p=products.find(p=>p.id===x.id);if(p)p.stock-=x.qty});cart=[];save();render();e.currentTarget.reset();$('cartOverlay').classList.remove('open');alert('Demo order saved only in this browser. No order was sent to the shop owner and no payment was collected.');
+
+$('checkout').addEventListener('submit', async e => {
+  e.preventDefault();
+
+  const form = e.currentTarget;
+
+  if (form.dataset.submitting === 'true') return;
+
+  if (!cart.length) {
+    alert('Your bag is empty.');
+    return;
+  }
+
+  for (const x of cart) {
+    const p = products.find(y => y.id === x.id);
+
+    if (!p || p.stock < x.qty) {
+      alert('Please review the stock for your items.');
+      return;
+    }
+  }
+
+  if (!window.supabase) {
+    alert('Order service is not ready. Please refresh and try again.');
+    return;
+  }
+
+  const d = new FormData(form);
+
+  const total = cart.reduce((sum, x) => {
+    const p = products.find(y => y.id === x.id);
+    return sum + price(p) * Number(x.qty);
+  }, 0);
+
+  const orderNumber = 'GJ-' + Date.now().toString().slice(-10);
+
+  const items = cart.map(x => {
+    const p = products.find(y => y.id === x.id);
+
+    return {
+      product_id: x.id,
+      product_name: p.name,
+      model: x.model,
+      quantity: Number(x.qty),
+      unit_price: price(p),
+      subtotal: Number((price(p) * Number(x.qty)).toFixed(2))
+    };
+  });
+
+  const order = {
+    order_number: orderNumber,
+    customer_name: String(d.get('name') || '').trim(),
+    phone: String(d.get('phone') || '').trim(),
+    delivery_address: String(d.get('address') || '').trim(),
+    payment_method: String(d.get('payment') || '').trim(),
+    items: items,
+    total: Number(total.toFixed(2)),
+    order_status: 'pending_payment',
+    payment_status: 'unpaid'
+  };
+
+  form.dataset.submitting = 'true';
+
+  const button = form.querySelector('button[type="submit"]');
+  const oldText = button ? button.textContent : '';
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Submitting order...';
+  }
+
+  try {
+    const db = window.supabase.createClient(
+      'https://udpjnirtmuzmiwmgelua.supabase.co',
+      'sb_publishable_IpMDj4zQ9B3GuMW4JAH0SA_MgqdDC0G'
+    );
+
+    const { error } = await db.from('orders').insert(order);
+
+    if (error) throw error;
+
+    orders.push({
+      id: orderNumber,
+      name: order.customer_name,
+      phone: order.phone,
+      address: order.delivery_address,
+      payment: order.payment_method,
+      total: order.total,
+      items: cart.map(x => ({ ...x })),
+      created: new Date().toISOString(),
+      order_status: 'pending_payment',
+      payment_status: 'unpaid'
+    });
+
+    cart = [];
+    save();
+    render();
+    form.reset();
+
+    $('cartOverlay').classList.remove('open');
+
+    alert(
+      'Order submitted successfully! Order number: ' +
+      orderNumber +
+      '. Your order is pending payment verification.'
+    );
+
+  } catch (err) {
+    console.error('Order submission failed:', err);
+
+    alert(
+      'Order submission failed. Your cart has been kept. Please try again.'
+    );
+
+  } finally {
+    delete form.dataset.submitting;
+
+    if (button) {
+      button.disabled = false;
+      button.textContent = oldText;
+    }
+  }
 });
+
 $('year').textContent=new Date().getFullYear();render();
 </script>
   
