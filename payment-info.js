@@ -7,7 +7,7 @@
     instagram: "graceantjoy"
   };
 
-  const QR_IMAGE = "./duitnow-qr.jpeg";
+  const QR_IMAGE = "./duitnow-qr.jpg";
 
   function initPaymentInfo() {
     const select = document.querySelector(
@@ -54,7 +54,7 @@
         panel.innerHTML = `
           <h3>DuitNow QR Payment</h3>
           <p>Scan this QR code using your banking app or eWallet.</p>
-          <img src="${duitnow-qr}" alt="Graceantjoy DuitNow QR"
+          <img src="${QR_IMAGE}" alt="Graceantjoy DuitNow QR"
             style="display:block;width:100%;max-width:340px;height:auto;margin:16px auto;border-radius:8px"
             onerror="this.alt='QR image could not load. Please check the uploaded filename.'">
           <p style="text-align:center"><strong>Account Name: ${BANK.holder}</strong></p>
