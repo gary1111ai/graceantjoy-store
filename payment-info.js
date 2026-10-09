@@ -7,7 +7,7 @@
     instagram: "graceantjoy"
   };
 
-  const QR_IMAGE = "./duitnow-qr.jpg";
+  const QR_IMAGE = "./duitnow-qr.JPG";
 
   function initPaymentInfo() {
     const select = document.querySelector(
