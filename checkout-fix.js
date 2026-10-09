@@ -121,7 +121,7 @@ document.addEventListener("submit", async function (event) {
   } catch (error) {
     console.error("Checkout error:", error);
     alert(
-      "Order submission failed. Your cart is محفوظ and has not been cleared. Error: " +
+      "Order submission failed. Your cart is saved and has not been cleared. Error: " +
       (error.message || "Please try again.")
     );
   } finally {
