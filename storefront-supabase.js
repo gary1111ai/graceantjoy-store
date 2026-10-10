@@ -24,14 +24,17 @@
   );
 
   async function loadCloudProducts() {
-    const productBox = document.getElementById("products");
+    const productBox =
+      document.getElementById("products");
 
     try {
       const { data, error } = await db
         .from("products")
         .select("*")
         .eq("is_active", true)
-        .order("created_at", { ascending: false });
+        .order("created_at", {
+          ascending: false
+        });
 
       if (error) throw error;
 
@@ -54,11 +57,13 @@
 
         salePrice:
           p.compare_at_price != null &&
-          Number(p.compare_at_price) < Number(p.price)
+          Number(p.compare_at_price) <
+            Number(p.price)
             ? Number(p.compare_at_price)
             : null,
 
-        promoQuantity: Number(p.promo_quantity || 2),
+        promoQuantity:
+          Number(p.promo_quantity || 2),
 
         promoPrice:
           p.promo_price != null
@@ -76,14 +81,14 @@
         style: p.style || p.category || "New Arrivals",
         material: p.material || "Hard Case",
 
-        // One design can support multiple phone models.
+        // Supported phone models for this design.
         models: Array.isArray(p.models)
           ? p.models
           : []
       }));
 
       console.info(
-        "Graceantjoy: products loaded successfully.",
+        "Graceantjoy: products loaded.",
         products.length
       );
 
@@ -97,7 +102,8 @@
       if (productBox) {
         productBox.innerHTML =
           '<div class="empty">' +
-          "Products could not load. Please refresh and try again." +
+          "Products could not load. " +
+          "Please refresh and try again." +
           "</div>";
       }
     }
