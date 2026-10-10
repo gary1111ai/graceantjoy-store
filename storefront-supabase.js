@@ -12,9 +12,7 @@
     typeof products === "undefined" ||
     typeof render !== "function"
   ) {
-    console.error(
-      "Graceantjoy: storefront connection not ready."
-    );
+    console.error("Graceantjoy: storefront connection not ready.");
     return;
   }
 
@@ -24,17 +22,12 @@
   );
 
   async function loadCloudProducts() {
-    const productBox =
-      document.getElementById("products");
-
     try {
       const { data, error } = await db
         .from("products")
         .select("*")
         .eq("is_active", true)
-        .order("created_at", {
-          ascending: false
-        });
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 
@@ -42,50 +35,47 @@
         id: p.id,
         name: p.name,
         description: p.description || "",
-
-        price: Number(p.price),
+        price: Number(p.price || 0),
 
         salePrice:
-          p.compare_at_price !== null &&
-          Number(p.compare_at_price) <
-            Number(p.price)
+          p.compare_at_price != null &&
+          Number(p.compare_at_price) < Number(p.price)
             ? Number(p.compare_at_price)
             : null,
 
-        promoQuantity:
-          Number(p.promo_quantity || 0),
-
+        // Mix-and-match promotion
+        promoQuantity: Number(p.promo_quantity || 2),
         promoPrice:
-          p.promo_price !== null &&
-          p.promo_price !== undefined
+          p.promo_price != null
             ? Number(p.promo_price)
-            : null,
+            : 35,
+
+        mixMatch:
+          p.promo_mix_match === true ||
+          p.promo_mix_match === "true" ||
+          p.promo_mix_match === 1,
 
         stock: Number(p.stock || 0),
         image: p.image_url || "",
         brand: p.brand || "Graceantjoy",
-        style:
-          p.style ||
-          p.category ||
-          "New Arrivals",
+        style: p.style || p.category || "New Arrivals",
         material: p.material || "Hard Case",
-        models: p.models || []
+        models: Array.isArray(p.models) ? p.models : []
       }));
 
-      render();
-
-    } catch (err) {
-      console.error(
-        "Supabase product load failed:",
-        err
+      console.info(
+        "Mix-and-match products:",
+        products.filter((p) => p.mixMatch).map((p) => p.name)
       );
 
-      if (productBox) {
-        productBox.innerHTML =
-          '<div class="empty">' +
-          "Products could not load. " +
-          "Please try again later." +
-          "</div>";
+      render();
+    } catch (err) {
+      console.error("Supabase product load failed:", err);
+
+      const box = document.getElementById("products");
+      if (box) {
+        box.innerHTML =
+          '<div class="empty">Products could not load. Please refresh and try again.</div>';
       }
     }
   }
