@@ -24,14 +24,17 @@
   );
 
   async function loadCloudProducts() {
-    const productBox = document.getElementById("products");
+    const productBox =
+      document.getElementById("products");
 
     try {
       const { data, error } = await db
         .from("products")
         .select("*")
         .eq("is_active", true)
-        .order("created_at", { ascending: false });
+        .order("created_at", {
+          ascending: false
+        });
 
       if (error) throw error;
 
@@ -44,11 +47,13 @@
 
         salePrice:
           p.compare_at_price !== null &&
-          Number(p.compare_at_price) < Number(p.price)
+          Number(p.compare_at_price) <
+            Number(p.price)
             ? Number(p.compare_at_price)
             : null,
 
-        promoQuantity: Number(p.promo_quantity || 0),
+        promoQuantity:
+          Number(p.promo_quantity || 0),
 
         promoPrice:
           p.promo_price !== null &&
@@ -59,7 +64,10 @@
         stock: Number(p.stock || 0),
         image: p.image_url || "",
         brand: p.brand || "Graceantjoy",
-        style: p.style || p.category || "New Arrivals",
+        style:
+          p.style ||
+          p.category ||
+          "New Arrivals",
         material: p.material || "Hard Case",
         models: p.models || []
       }));
@@ -75,7 +83,8 @@
       if (productBox) {
         productBox.innerHTML =
           '<div class="empty">' +
-          "Products could not load. Please try again later." +
+          "Products could not load. " +
+          "Please try again later." +
           "</div>";
       }
     }
