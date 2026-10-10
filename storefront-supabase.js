@@ -1,13 +1,20 @@
 
 /* Graceantjoy Supabase product connection */
 (function () {
-  const SUPABASE_URL = "https://udpjnirtmuzmiwmgelua.supabase.co";
-  const SUPABASE_KEY = "sb_publishable_IpMDj4zQ9B3GuMW4JAH0SA_MgqdDC0G";
+  const SUPABASE_URL =
+    "https://udpjnirtmuzmiwmgelua.supabase.co";
 
-  if (!window.supabase ||
-      typeof products === "undefined" ||
-      typeof render !== "function") {
-    console.error("Graceantjoy: storefront connection not ready.");
+  const SUPABASE_KEY =
+    "sb_publishable_IpMDj4zQ9B3GuMW4JAH0SA_MgqdDC0G";
+
+  if (
+    !window.supabase ||
+    typeof products === "undefined" ||
+    typeof render !== "function"
+  ) {
+    console.error(
+      "Graceantjoy: storefront connection not ready."
+    );
     return;
   }
 
@@ -28,16 +35,27 @@
 
       if (error) throw error;
 
-      products = (data || []).map(p => ({
+      products = (data || []).map((p) => ({
         id: p.id,
         name: p.name,
         description: p.description || "",
+
         price: Number(p.price),
+
         salePrice:
           p.compare_at_price !== null &&
           Number(p.compare_at_price) < Number(p.price)
             ? Number(p.compare_at_price)
             : null,
+
+        promoQuantity: Number(p.promo_quantity || 0),
+
+        promoPrice:
+          p.promo_price !== null &&
+          p.promo_price !== undefined
+            ? Number(p.promo_price)
+            : null,
+
         stock: Number(p.stock || 0),
         image: p.image_url || "",
         brand: p.brand || "Graceantjoy",
@@ -47,12 +65,18 @@
       }));
 
       render();
+
     } catch (err) {
-      console.error("Supabase product load failed:", err);
+      console.error(
+        "Supabase product load failed:",
+        err
+      );
 
       if (productBox) {
         productBox.innerHTML =
-          '<div class="empty">商品暂时无法加载，请稍后重试。</div>';
+          '<div class="empty">' +
+          "Products could not load. Please try again later." +
+          "</div>";
       }
     }
   }
