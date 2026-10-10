@@ -1,5 +1,6 @@
 
-/* Graceantjoy Supabase product connection */
+/* Graceantjoy Supabase storefront connector.
+   Keep this file in the same folder as index.html. */
 (function () {
   const SUPABASE_URL =
     "https://udpjnirtmuzmiwmgelua.supabase.co";
@@ -13,7 +14,7 @@
     typeof render !== "function"
   ) {
     console.error(
-      "Graceantjoy: storefront connection not ready."
+      "Graceantjoy Supabase connector: Supabase CDN or storefront script not found."
     );
     return;
   }
@@ -24,87 +25,48 @@
   );
 
   async function loadCloudProducts() {
-    const productBox =
-      document.getElementById("products");
+    const productBox = document.getElementById("products");
 
     try {
       const { data, error } = await db
         .from("products")
         .select("*")
         .eq("is_active", true)
-        .order("created_at", {
-          ascending: false
-        });
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 
       products = (data || []).map((p) => ({
         id: p.id,
-
-        productCode:
-          p.product_code ||
-          (
-            "GA-" +
-            String(p.id)
-              .replace(/-/g, "")
-              .slice(0, 8)
-              .toUpperCase()
-          ),
-
         name: p.name,
         description: p.description || "",
-        price: Number(p.price || 0),
-
+        price: Number(p.price),
         salePrice:
-          p.compare_at_price != null &&
-          Number(p.compare_at_price) <
-            Number(p.price)
+          p.compare_at_price !== null &&
+          Number(p.compare_at_price) < Number(p.price)
             ? Number(p.compare_at_price)
             : null,
-
-        promoQuantity:
-          Number(p.promo_quantity || 2),
-
-        promoPrice:
-          p.promo_price != null
-            ? Number(p.promo_price)
-            : 35,
-
-        mixMatch:
-          p.promo_mix_match === true ||
-          p.promo_mix_match === "true" ||
-          p.promo_mix_match === 1,
-
         stock: Number(p.stock || 0),
         image: p.image_url || "",
         brand: p.brand || "Graceantjoy",
         style: p.style || p.category || "New Arrivals",
         material: p.material || "Hard Case",
-
-        // Supported phone models for this design.
-        models: Array.isArray(p.models)
-          ? p.models
-          : []
+        models: p.models || []
       }));
-
-      console.info(
-        "Graceantjoy: products loaded.",
-        products.length
-      );
 
       render();
     } catch (err) {
-      console.error(
-        "Supabase product load failed:",
-        err
-      );
+      console.error("Supabase product load failed:", err);
 
       if (productBox) {
         productBox.innerHTML =
-          '<div class="empty">' +
-          "Products could not load. " +
-          "Please refresh and try again." +
-          "</div>";
+          '<div class="empty">商品暂时无法加载，请稍后重试。</div>';
+      }
+
+      const count = document.getElementById("resultCount");
+
+      if (count) {
+        count.textContent = "Store connection issue";
       }
     }
   }
