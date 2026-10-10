@@ -12,7 +12,9 @@
     typeof products === "undefined" ||
     typeof render !== "function"
   ) {
-    console.error("Graceantjoy: storefront connection not ready.");
+    console.error(
+      "Graceantjoy: storefront connection not ready."
+    );
     return;
   }
 
@@ -22,6 +24,8 @@
   );
 
   async function loadCloudProducts() {
+    const productBox = document.getElementById("products");
+
     try {
       const { data, error } = await db
         .from("products")
@@ -33,6 +37,17 @@
 
       products = (data || []).map((p) => ({
         id: p.id,
+
+        productCode:
+          p.product_code ||
+          (
+            "GA-" +
+            String(p.id)
+              .replace(/-/g, "")
+              .slice(0, 8)
+              .toUpperCase()
+          ),
+
         name: p.name,
         description: p.description || "",
         price: Number(p.price || 0),
@@ -43,8 +58,8 @@
             ? Number(p.compare_at_price)
             : null,
 
-        // Mix-and-match promotion
         promoQuantity: Number(p.promo_quantity || 2),
+
         promoPrice:
           p.promo_price != null
             ? Number(p.promo_price)
@@ -60,22 +75,30 @@
         brand: p.brand || "Graceantjoy",
         style: p.style || p.category || "New Arrivals",
         material: p.material || "Hard Case",
-        models: Array.isArray(p.models) ? p.models : []
+
+        // One design can support multiple phone models.
+        models: Array.isArray(p.models)
+          ? p.models
+          : []
       }));
 
       console.info(
-        "Mix-and-match products:",
-        products.filter((p) => p.mixMatch).map((p) => p.name)
+        "Graceantjoy: products loaded successfully.",
+        products.length
       );
 
       render();
     } catch (err) {
-      console.error("Supabase product load failed:", err);
+      console.error(
+        "Supabase product load failed:",
+        err
+      );
 
-      const box = document.getElementById("products");
-      if (box) {
-        box.innerHTML =
-          '<div class="empty">Products could not load. Please refresh and try again.</div>';
+      if (productBox) {
+        productBox.innerHTML =
+          '<div class="empty">' +
+          "Products could not load. Please refresh and try again." +
+          "</div>";
       }
     }
   }
