@@ -17,8 +17,9 @@
   }
 
   function getOrder() {
-    const number =
-      document.getElementById("paymentOrder")?.textContent?.trim();
+    const number = document
+      .getElementById("paymentOrder")
+      ?.textContent?.trim();
 
     let orders = [];
 
@@ -44,12 +45,10 @@
 
     items.forEach((item, index) => {
       const name = item.product_name || item.name || "Product";
-      const code =
-        item.product_code || item.style_code || "-";
-      const model =
-        item.phone_model || item.model || "-";
-      const quantity =
-        Number(item.quantity || item.qty || 0);
+      const code = item.product_code || item.style_code || "-";
+      const model = item.phone_model || item.model || "-";
+      const quantity = Number(item.quantity || item.qty || 0);
+
       const subtotal = Number(
         item.subtotal ??
         item.line_total ??
@@ -76,17 +75,26 @@
       "#paymentOverlay .pay-card"
     );
 
-    if (!card || document.getElementById("gj-done-payment-wrap")) {
+    if (
+      !card ||
+      document.getElementById("gj-done-payment-wrap")
+    ) {
       return;
     }
 
     const style = document.createElement("style");
+
     style.textContent = `
       #gj-done-payment-wrap {
         margin-top: 18px;
         padding-top: 14px;
         border-top: 1px solid #eedde3;
       }
+
+      #gj-done-payment-wrap[hidden] {
+        display: none !important;
+      }
+
       #gj-done-payment-button,
       #gj-copy-order-button,
       #gj-ig-dm-button {
@@ -99,17 +107,22 @@
         border-radius: 999px;
         font-weight: bold;
         text-align: center;
+        cursor: pointer;
+        font-size: 14px;
       }
+
       #gj-done-payment-button,
       #gj-copy-order-button {
         background: #9d526d;
         color: white;
       }
+
       #gj-ig-dm-button {
         background: #30272b;
         color: white;
         text-decoration: none;
       }
+
       #gj-order-panel {
         margin-top: 14px;
         padding: 16px;
@@ -117,25 +130,33 @@
         border-radius: 14px;
         background: #fffdfd;
       }
+
       #gj-order-panel pre {
         white-space: pre-wrap;
         overflow-wrap: anywhere;
         font: 13px/1.7 Arial, sans-serif;
       }
+
       #gj-copy-success {
         color: #207245;
         font-weight: bold;
+        line-height: 1.6;
       }
+
       #gj-order-warning {
         color: #9d526d;
         font-size: 13px;
         line-height: 1.7;
       }
     `;
+
     document.head.appendChild(style);
 
     const wrap = document.createElement("div");
     wrap.id = "gj-done-payment-wrap";
+
+    // 关键：默认隐藏，付款凭证上传成功后才显示
+    wrap.hidden = true;
 
     const done = document.createElement("button");
     done.id = "gj-done-payment-button";
@@ -202,12 +223,65 @@
       "Continue to Instagram DM",
       "前往 Instagram 私信"
     );
+
+    // 复制订单资料之前，先禁用 Instagram 跳转
     dm.style.opacity = "0.45";
     dm.style.pointerEvents = "none";
+
     panel.appendChild(dm);
 
     wrap.append(done, panel);
     card.appendChild(wrap);
+
+    // 监听原有付款凭证上传程序的成功状态
+    const proofStatus = document.getElementById(
+      "proofUploadStatus"
+    );
+
+    const uploadButton = document.getElementById(
+      "uploadProofBtn"
+    );
+
+    function revealAfterSuccessfulUpload() {
+      const label = uploadButton?.textContent?.trim() || "";
+      const color = proofStatus?.style.color || "";
+
+      const successByButton =
+        /uploaded\s*✓|已上传\s*✓/i.test(label);
+
+      const successByColor =
+        color === "#207245" ||
+        color === "rgb(32, 114, 69)";
+
+      if (successByButton || successByColor) {
+        wrap.hidden = false;
+      }
+    }
+
+    const observer = new MutationObserver(
+      revealAfterSuccessfulUpload
+    );
+
+    if (proofStatus) {
+      observer.observe(proofStatus, {
+        childList: true,
+        characterData: true,
+        subtree: true,
+        attributes: true
+      });
+    }
+
+    if (uploadButton) {
+      observer.observe(uploadButton, {
+        childList: true,
+        characterData: true,
+        subtree: true,
+        attributes: true
+      });
+    }
+
+    // 检查是否已经上传成功
+    revealAfterSuccessfulUpload();
 
     done.addEventListener("click", function () {
       const order = getOrder();
@@ -223,10 +297,12 @@
       details.textContent = getOrderDetails(order);
       panel.hidden = false;
       success.hidden = true;
+
       copy.textContent = text(
         "Copy Order Details",
         "复制订单资料"
       );
+
       dm.style.opacity = "0.45";
       dm.style.pointerEvents = "none";
 
@@ -238,23 +314,35 @@
 
     copy.addEventListener("click", async function () {
       const order = getOrder();
-      if (!order) return;
+
+      if (!order) {
+        alert(text(
+          "Order details could not be found.",
+          "无法读取订单资料。"
+        ));
+        return;
+      }
 
       const content = getOrderDetails(order);
       let copied = false;
 
       try {
-        if (navigator.clipboard && window.isSecureContext) {
+        if (
+          navigator.clipboard &&
+          window.isSecureContext
+        ) {
           await navigator.clipboard.writeText(content);
           copied = true;
         }
       } catch (e) {}
 
+      // 备用复制方式
       if (!copied) {
         const area = document.createElement("textarea");
         area.value = content;
         area.style.position = "fixed";
         area.style.left = "-9999px";
+
         document.body.appendChild(area);
         area.select();
 
@@ -274,19 +362,25 @@
       }
 
       success.hidden = false;
+
       copy.textContent = text(
         "Copied Successfully ✓",
         "复制成功 ✓"
       );
 
+      // 复制成功后才允许前往 Instagram
       dm.style.opacity = "1";
       dm.style.pointerEvents = "auto";
     });
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", addFeature);
-  } else {
+  function init() {
     addFeature();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
   }
 })();
