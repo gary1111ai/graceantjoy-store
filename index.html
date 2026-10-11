@@ -18,7 +18,6 @@ main{max-width:620px;margin:8vh auto;background:#fff5f7;border-radius:18px;paddi
 <script>
 (async function () {
   const status = document.getElementById('status');
-  // Load the original storefront from a fixed commit so this file does not load itself.
   const sourceUrl = 'https://raw.githubusercontent.com/gary1111ai/graceantjoy-store/2e3fc9cd9c8e04f28152840c7b64db85a4e56e24/index.html';
   try {
     const response = await fetch(sourceUrl, { cache: 'no-store' });
@@ -37,14 +36,13 @@ main{max-width:620px;margin:8vh auto;background:#fff5f7;border-radius:18px;paddi
       html = html.replace(before, after);
     }
     if (html.includes('id="materialFilter"') || html.includes('id="brandFilter"') || html.includes("safe(p.material||'Case')")) throw new Error('Material and phone-brand filters were not fully removed; automatic editing stopped.');
-    // Load the separate order-notification feature into the original storefront.
     if (!html.includes('</body>')) throw new Error('Could not find the storefront body end tag.');
-    html = html.replace('</body>', '<script src="./graceantjoy-ig-order-notification.js"><\/script></body>');
+    html = html.replace('</body>', '<script src="./graceantjoy-ig-order-notification.js"><\\/script><script src="./graceantjoy-my-orders.js"><\\/script></body>');
     document.open();
     document.write(html);
     document.close();
   } catch (error) {
-    status.textContent = 'The store could not load automatically. Please check index.html and graceantjoy-ig-order-notification.js. Details: ' + error.message;
+    status.textContent = 'The store could not load automatically. Please check index.html, graceantjoy-ig-order-notification.js and graceantjoy-my-orders.js. Details: ' + error.message;
   }
 })();
 </script>
