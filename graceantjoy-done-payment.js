@@ -36,38 +36,52 @@
 
   function getOrderDetails(order) {
     const items = Array.isArray(order.items) ? order.items : [];
+    const grouped = new Map();
+    let totalQuantity = 0;
 
-    const lines = [
-      "Graceantjoy Order Details",
-      "Order Number: " + (order.id || order.order_number),
-      ""
-    ];
+    items.forEach(item => {
+      const code = String(
+        item.product_code || item.style_code || item.code || "-"
+      ).trim();
 
-    items.forEach((item, index) => {
-      const name = item.product_name || item.name || "Product";
-      const code = item.product_code || item.style_code || "-";
-      const model = item.phone_model || item.model || "-";
+      const model = String(
+        item.phone_model || item.model || "-"
+      ).trim();
+
       const quantity = Number(item.quantity || item.qty || 0);
+      totalQuantity += quantity;
 
-      const subtotal = Number(
-        item.subtotal ??
-        item.line_total ??
-        Number(item.unit_price || 0) * quantity
-      );
+      // 只有款式编号和 iPhone 型号都相同才合并
+      const key = code + "||" + model;
 
-      lines.push(
-        (index + 1) + ". " + name,
-        "Product Code: " + code,
-        "iPhone Model: " + model,
-        "Quantity: " + quantity,
-        "Item Total: " + money(subtotal),
-        ""
-      );
+      if (grouped.has(key)) {
+        grouped.get(key).quantity += quantity;
+      } else {
+        grouped.set(key, { code, model, quantity });
+      }
     });
 
-    lines.push("Order Total: " + money(order.total));
+    const orderNumber = order.id || order.order_number || "-";
 
-    return lines.join("\n");
+    const total = order.total != null
+      ? order.total
+      : Number(order.subtotal || 0) +
+        Number(order.shipping_fee || 0);
+
+    const details = Array.from(grouped.values())
+      .map(item =>
+        item.code + "/" + item.model + "×" + item.quantity
+      )
+      .join(", ");
+
+    return [
+      "Graceantjoy",
+      "Order: " + orderNumber,
+      "Items: " + totalQuantity + " pcs",
+      "Details: " + (details || "-"),
+      "",
+      "Total: " + money(total)
+    ].join("\n");
   }
 
   function addFeature() {
@@ -154,8 +168,6 @@
 
     const wrap = document.createElement("div");
     wrap.id = "gj-done-payment-wrap";
-
-    // 关键：默认隐藏，付款凭证上传成功后才显示
     wrap.hidden = true;
 
     const done = document.createElement("button");
@@ -179,8 +191,8 @@
 
     const intro = document.createElement("p");
     intro.textContent = text(
-      "Copy the details below and send them to us on Instagram DM so we can confirm your order.",
-      "请先复制以下订单资料，再前往 Instagram 私信发送给我们，以便我们核实并确认订单。"
+      "Copy the short order summary below and send it to us on Instagram DM.",
+      "请先复制以下精简订单资料，再前往 Instagram 私信发送给我们。"
     );
     panel.appendChild(intro);
 
@@ -209,8 +221,8 @@
     const warning = document.createElement("p");
     warning.id = "gj-order-warning";
     warning.textContent = text(
-      "Important: Copy your order details first, then send them to us in Instagram DM. We need these details to confirm your order.",
-      "重要：请务必先复制订单资料，再到 Instagram DM 粘贴并发送给我们。我们需要收到这些资料才能确认订单。"
+      "Important: Copy the details first, then paste and send them in Instagram DM so we can confirm your order.",
+      "重要：请务必先复制订单资料，再到 Instagram DM 粘贴并发送，以便我们确认订单。"
     );
     panel.appendChild(warning);
 
@@ -223,17 +235,14 @@
       "Continue to Instagram DM",
       "前往 Instagram 私信"
     );
-
-    // 复制订单资料之前，先禁用 Instagram 跳转
     dm.style.opacity = "0.45";
     dm.style.pointerEvents = "none";
-
     panel.appendChild(dm);
 
     wrap.append(done, panel);
     card.appendChild(wrap);
 
-    // 监听原有付款凭证上传程序的成功状态
+    // 保留原有付款凭证上传成功判断
     const proofStatus = document.getElementById(
       "proofUploadStatus"
     );
@@ -280,7 +289,6 @@
       });
     }
 
-    // 检查是否已经上传成功
     revealAfterSuccessfulUpload();
 
     done.addEventListener("click", function () {
@@ -327,16 +335,12 @@
       let copied = false;
 
       try {
-        if (
-          navigator.clipboard &&
-          window.isSecureContext
-        ) {
+        if (navigator.clipboard && window.isSecureContext) {
           await navigator.clipboard.writeText(content);
           copied = true;
         }
       } catch (e) {}
 
-      // 备用复制方式
       if (!copied) {
         const area = document.createElement("textarea");
         area.value = content;
@@ -368,19 +372,14 @@
         "复制成功 ✓"
       );
 
-      // 复制成功后才允许前往 Instagram
       dm.style.opacity = "1";
       dm.style.pointerEvents = "auto";
     });
   }
 
-  function init() {
-    addFeature();
-  }
-
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
+    document.addEventListener("DOMContentLoaded", addFeature);
   } else {
-    init();
+    addFeature();
   }
 })();
