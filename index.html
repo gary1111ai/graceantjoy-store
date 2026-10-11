@@ -164,23 +164,29 @@ $('uploadProofBtn').addEventListener('click', async function () {
     $('proofUploadStatus').textContent =
       lang === 'zh'
         ? '图片已上传，正在保存订单凭证记录…'
-        : 'Image uploaded. Saving payment proof record…';
-
-    var saved = await waitWithTimeout(
-      db.rpc('save_payment_proof', {
-        p_order_number: currentOrderNumber,
-        p_proof_token: currentProofToken,
-        p_storage_path: path
-      }),
-      'Saving payment proof record',
-      20000
-    );
-
-    if (saved.error) {
-      throw saved.error;
+        
+    // 后台保存订单记录，不再阻塞顾客流程
+    try {
+      Promise.resolve(
+        db.rpc('save_payment_proof', {
+          p_order_number: currentOrderNumber,
+          p_proof_token: currentProofToken,
+          p_storage_path: path
+        })
+      ).then(function (saved) {
+        if (saved && saved.error) {
+          console.error('Payment proof record save failed:', saved.error);
+        }
+      }).catch(function (err) {
+        console.error('Payment proof record save failed:', err);
+      });
+    } catch (saveErr) {
+      console.error('Payment proof record save failed:', saveErr);
     }
 
+    // 图片进入 Storage 后，立即显示成功
     completed = true;
+
 
     $('proofUploadStatus').textContent =
       (lang === 'zh'
@@ -308,6 +314,23 @@ panel.appendChild(copyButton);
 panel.appendChild(dmButton);
 
 $('proofUploadStatus').parentNode.appendChild(panel);
+
+    // 尝试自动复制订单资料
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(orderText).catch(function (err) {
+          console.warn('Order copy failed:', err);
+        });
+      }
+    } catch (err) {
+      console.warn('Order copy failed:', err);
+    }
+
+    // 显示成功后，自动打开 Instagram DM
+    window.setTimeout(function () {
+      window.location.href = 'https://ig.me/m/graceantjoy';
+    }, 1000);
+
 
     btn.textContent =
       lang === 'zh' ? '已上传 ✓' : 'Uploaded ✓';
