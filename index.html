@@ -116,9 +116,12 @@ main {
       Keep the order history feature.
     */
 
+    
     const scripts =
       '<script src="./graceantjoy-my-orders.js"><' +
+      '/script><script src="./graceantjoy-done-payment.js?v=1"><' +
       '/script></body>';
+
 
     if (!html.includes("</body>")) {
       throw new Error(
