@@ -37,7 +37,8 @@ main{max-width:620px;margin:8vh auto;background:#fff5f7;border-radius:18px;paddi
     }
     if (html.includes('id="materialFilter"') || html.includes('id="brandFilter"') || html.includes("safe(p.material||'Case')")) throw new Error('Material and phone-brand filters were not fully removed; automatic editing stopped.');
     if (!html.includes('</body>')) throw new Error('Could not find the storefront body end tag.');
-    html = html.replace('</body>', '<script src="./graceantjoy-ig-order-notification.js"><\\/script><script src="./graceantjoy-my-orders.js"><\\/script></body>');
+    const scripts = '<script src="./graceantjoy-ig-order-notification.js"><' + '/script><script src="./graceantjoy-my-orders.js"><' + '/script></body>';
+    html = html.replace('</body>', scripts);
     document.open();
     document.write(html);
     document.close();
