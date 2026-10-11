@@ -161,9 +161,12 @@ $('uploadProofBtn').addEventListener('click', async function () {
       throw uploaded.error;
     }
 
+    
     $('proofUploadStatus').textContent =
       lang === 'zh'
         ? '图片已上传，正在保存订单凭证记录…'
+        : 'Image uploaded. Saving payment proof record…';
+
         
     // 后台保存订单记录，不再阻塞顾客流程
     try {
