@@ -6,8 +6,8 @@
 <meta name="theme-color" content="#fff5f7">
 <title>Graceantjoy — Phone Cases with a Little Joy</title>
 <style>
-body{font-family:Arial,sans-serif;background:#fffdfd;color:#30272b;padding:24px;line-height:1.6}
-main{max-width:620px;margin:8vh auto;background:#fff5f7;border-radius:18px;padding:24px}
+body{font-family:Arial,sans-serif;background:#fff5f7;color:#30272b;padding:24px;line-height:1.6}
+main{max-width:620px;margin:8vh auto;background:#fff;border-radius:18px;padding:24px}
 </style>
 </head>
 <body>
@@ -15,310 +15,27 @@ main{max-width:620px;margin:8vh auto;background:#fff5f7;border-radius:18px;paddi
   <strong>Graceantjoy</strong>
   <p id="status">Loading store…</p>
 </main>
-
 <script>
 (async function () {
   const status = document.getElementById("status");
-  const sourceUrl =
-    "https://raw.githubusercontent.com/gary1111ai/graceantjoy-store/2e3fc9cd9c8e04f28152840c7b64db85a4e56e24/index.html";
+  const sourceUrl = "https://raw.githubusercontent.com/gary1111ai/graceantjoy-store/2e3fc9cd9c8e04f28152840c7b64db85a4e56e24/index.html";
 
   try {
     const response = await fetch(sourceUrl, { cache: "no-store" });
-
-    if (!response.ok) {
-      throw new Error(
-        "Could not load the original storefront (" +
-        response.status + ")."
-      );
-    }
-
+    if (!response.ok) throw new Error("Could not load original storefront (" + response.status + ").");
     let html = await response.text();
 
-    /*
-     * Payment-proof upload repair:
-     * - Show useful errors and stop infinite loading.
-     * - Do not redirect customers automatically to Instagram.
-     * - Show order details and let customers copy them manually.
-     */
-    const uploadStartMarker =
-      "$('uploadProofBtn').addEventListener('click',async function(){";
-
-    const uploadEndMarker =
-      "finally{btn.disabled=false}});";
-
-    const uploadStart = html.indexOf(uploadStartMarker);
-    const uploadEnd = html.indexOf(
-      uploadEndMarker,
-      uploadStart
-    );
-
-    if (uploadStart === -1 || uploadEnd === -1) {
-      throw new Error(
-        "Could not find the original payment upload handler. " +
-        "The source storefront may have changed."
-      );
+    // Replace the old upload handler with a harmless placeholder.
+    // The only real upload handler is in graceantjoy-payment-flow.js.
+    const startMarker = "$('uploadProofBtn').addEventListener('click',async function(){";
+    const endMarker = "finally{btn.disabled=false}});";
+    const start = html.indexOf(startMarker);
+    const end = html.indexOf(endMarker, start);
+    if (start < 0 || end < 0) {
+      throw new Error("Could not locate the old upload handler. No modified page was displayed.");
     }
-
-    const replacementUploadHandler = `
-$('uploadProofBtn').addEventListener('click', async function () {
-  var file = $('paymentProofFile').files[0];
-
-  if (!file) {
-    $('proofUploadStatus').textContent = t('proofChoose');
-    return;
-  }
-
-  if (!/^image\\/(jpeg|png|webp)$/.test(file.type) ||
-      file.size > 5 * 1024 * 1024) {
-    $('proofUploadStatus').textContent =
-      lang === 'zh'
-        ? '请上传 JPG、PNG 或 WebP 图片，文件不能超过 5MB。'
-        : 'Please upload a JPG, PNG or WebP image under 5MB.';
-    return;
-  }
-
-  if (!currentOrderNumber || !currentProofToken) {
-    $('proofUploadStatus').textContent =
-      lang === 'zh'
-        ? '找不到订单资料。请先重新提交订单，或联系 Graceantjoy。'
-        : 'Order session not found. Please resubmit your order or contact Graceantjoy.';
-    return;
-  }
-
-  var btn = $('uploadProofBtn');
-  var completed = false;
-
-  function waitWithTimeout(promise, label, milliseconds) {
-    return new Promise(function (resolve, reject) {
-      var timer = setTimeout(function () {
-        reject(new Error(
-          label + ' timed out after ' +
-          Math.round(milliseconds / 1000) +
-          ' seconds. Please check your connection and try again.'
-        ));
-      }, milliseconds);
-
-      Promise.resolve(promise).then(
-        function (value) {
-          clearTimeout(timer);
-          resolve(value);
-        },
-        function (error) {
-          clearTimeout(timer);
-          reject(error);
-        }
-      );
-    });
-  }
-
-  btn.disabled = true;
-  btn.textContent = lang === 'zh' ? '正在上传…' : 'Uploading…';
-  $('proofUploadStatus').style.color = '#625b50';
-  $('proofUploadStatus').textContent =
-    lang === 'zh' ? '正在上传图片，请稍候…' : 'Uploading image, please wait…';
-
-  try {
-    if (!window.supabase ||
-        typeof window.supabase.createClient !== 'function') {
-      throw new Error(
-        'Supabase client is not loaded. Please refresh the page and try again.'
-      );
-    }
-
-    var db = window.supabase.createClient(
-      'https://udpjnirtmuzmiwmgelua.supabase.co',
-      'sb_publishable_IpMDj4zQ9B3GuMW4JAH0SA_MgqdDC0G'
-    );
-
-    var ext = file.type === 'image/png'
-      ? 'png'
-      : file.type === 'image/webp'
-        ? 'webp'
-        : 'jpg';
-
-    var path = currentProofToken + '/' + crypto.randomUUID() + '.' + ext;
-
-    var uploaded = await waitWithTimeout(
-      db.storage.from('payment-proofs').upload(path, file, {
-        upsert: false,
-        contentType: file.type
-      }),
-      'Payment proof image upload',
-      30000
-    );
-
-    if (uploaded.error) {
-      throw uploaded.error;
-    }
-
-    $('proofUploadStatus').textContent =
-      lang === 'zh'
-        ? '图片已上传，正在记录凭证…'
-        : 'Image uploaded. Saving payment proof record…';
-
-    /*
-     * Save the database record in the background. Storage upload success
-     * must not leave the customer's page spinning while this RPC runs.
-     */
-    try {
-      waitWithTimeout(
-        db.rpc('save_payment_proof', {
-          p_order_number: currentOrderNumber,
-          p_proof_token: currentProofToken,
-          p_storage_path: path
-        }),
-        'Payment proof record save',
-        20000
-      ).then(function (saved) {
-        if (saved && saved.error) {
-          console.error('Payment proof record save failed:', saved.error);
-          $('proofUploadStatus').textContent +=
-            lang === 'zh'
-              ? '（图片已上传；后台订单记录需核查，请保留订单编号。）'
-              : ' (Image uploaded; order record needs checking. Please keep your order number.)';
-        }
-      }).catch(function (err) {
-        console.error('Payment proof record save failed:', err);
-      });
-    } catch (saveErr) {
-      console.error('Payment proof record save failed:', saveErr);
-    }
-
-    completed = true;
-    $('proofUploadStatus').style.color = '#207245';
-    $('proofUploadStatus').textContent =
-      (lang === 'zh'
-        ? '付款凭证已上传成功！请复制订单资料并发送给我们。'
-        : 'Payment proof uploaded successfully! Copy your order details and send them to us.') +
-      ' Order: ' + currentOrderNumber + ' ✓';
-
-    var orderData = Array.isArray(orders)
-      ? orders.find(function (o) {
-          return String(o.id || o.order_number) === String(currentOrderNumber);
-        })
-      : null;
-
-    var oldPanel = document.getElementById('igOrderConfirmation');
-    if (oldPanel) oldPanel.remove();
-
-    var panel = document.createElement('div');
-    panel.id = 'igOrderConfirmation';
-    panel.style.cssText =
-      'margin-top:18px;padding:18px;border:1px solid #eedde3;' +
-      'border-radius:14px;background:#fff5f7;color:#30272b;';
-
-    var heading = document.createElement('h3');
-    heading.textContent = lang === 'zh' ? '订单资料 ♡' : 'Order Details ♡';
-    heading.style.cssText = 'font-size:20px;margin:0 0 8px;';
-
-    var instruction = document.createElement('p');
-    instruction.textContent = lang === 'zh'
-      ? '请复制以下资料，然后点击 Instagram DM，将资料粘贴并发送给我们。'
-      : 'Copy the details below, open Instagram DM, paste the details and send them to us.';
-    instruction.style.cssText = 'font-size:13px;line-height:1.7;margin:0 0 14px;';
-
-    var orderLines = [
-      'Graceantjoy Order Details',
-      'Order No: ' + currentOrderNumber,
-      ''
-    ];
-
-    if (orderData && Array.isArray(orderData.items)) {
-      orderData.items.forEach(function (item, index) {
-        orderLines.push(
-          'Product ' + (index + 1) + ': ' +
-            (item.product_name || item.name || 'Phone Case'),
-          'Style Code: ' + (item.product_code || item.style_code || '-'),
-          'Phone Model: ' + (item.phone_model || item.model || '-'),
-          'Quantity: ' + Number(item.quantity || 0),
-          'Item Total: ' + money(
-            item.subtotal != null
-              ? item.subtotal
-              : Number(item.unit_price || 0) * Number(item.quantity || 0)
-          ),
-          ''
-        );
-      });
-
-      orderLines.push(
-        'Subtotal: ' + money(orderData.subtotal),
-        'Shipping: ' + money(orderData.shipping_fee),
-        'Total: ' + money(orderData.total)
-      );
-    } else {
-      orderLines.push('Total: ' + $('paymentTotal').textContent);
-    }
-
-    var orderText = orderLines.join('\\n');
-
-    var details = document.createElement('pre');
-    details.textContent = orderText;
-    details.style.cssText =
-      'white-space:pre-wrap;overflow-wrap:anywhere;' +
-      'font:12px/1.8 Arial,sans-serif;background:#fff;' +
-      'padding:12px;border-radius:9px;border:1px solid #eedde3;';
-
-    var copyButton = document.createElement('button');
-    copyButton.type = 'button';
-    copyButton.className = 'primary';
-    copyButton.style.cssText = 'width:100%;margin:8px 0 10px;';
-    copyButton.textContent = lang === 'zh' ? '复制订单资料' : 'Copy Order Details';
-
-    copyButton.onclick = async function () {
-      try {
-        await navigator.clipboard.writeText(orderText);
-        copyButton.textContent = lang === 'zh' ? '已复制 ✓' : 'Copied ✓';
-      } catch (err) {
-        window.prompt(
-          lang === 'zh' ? '请手动复制以下订单资料：' : 'Please copy your order details:',
-          orderText
-        );
-      }
-    };
-
-    var dmButton = document.createElement('a');
-    dmButton.href = 'https://ig.me/m/graceantjoy';
-    dmButton.target = '_blank';
-    dmButton.rel = 'noopener noreferrer';
-    dmButton.className = 'primary';
-    dmButton.style.cssText =
-      'display:block;width:100%;box-sizing:border-box;' +
-      'text-align:center;text-decoration:none;margin-top:4px;';
-    dmButton.textContent = lang === 'zh'
-      ? '前往 Instagram DM 发送订单 →'
-      : 'Continue to Instagram DM →';
-
-    panel.appendChild(heading);
-    panel.appendChild(instruction);
-    panel.appendChild(details);
-    panel.appendChild(copyButton);
-    panel.appendChild(dmButton);
-    $('proofUploadStatus').parentNode.appendChild(panel);
-
-    btn.textContent = lang === 'zh' ? '已上传 ✓' : 'Uploaded ✓';
-    $('paymentProofFile').value = '';
-
-  } catch (err) {
-    console.error('Payment proof upload failed:', err);
-    var errorMessage = err && err.message
-      ? err.message
-      : 'Unknown error. Please try again.';
-
-    $('proofUploadStatus').style.color = '#b42318';
-    $('proofUploadStatus').textContent =
-      (lang === 'zh' ? '上传失败：' : 'Upload failed: ') + errorMessage;
-
-    btn.textContent = lang === 'zh' ? '重新上传凭证' : 'Retry Upload';
-  } finally {
-    if (!completed) btn.disabled = false;
-  }
-});
-`;
-
-    html =
-      html.slice(0, uploadStart) +
-      replacementUploadHandler +
-      html.slice(uploadEnd + uploadEndMarker.length);
+    const placeholder = "$('uploadProofBtn').addEventListener('click',function(event){event.preventDefault();});";
+    html = html.slice(0, start) + placeholder + html.slice(end + endMarker.length);
 
     const replacements = [
       [
@@ -347,45 +64,29 @@ $('uploadProofBtn').addEventListener('click', async function () {
       ]
     ];
 
-    for (const pair of replacements) {
-      if (!html.includes(pair[0])) {
-        throw new Error(
-          "A storefront modification could not be applied safely. " +
-          "No modified page was displayed."
-        );
-      }
-      html = html.replace(pair[0], pair[1]);
+    for (const [oldText, newText] of replacements) {
+      if (!html.includes(oldText)) throw new Error("A storefront update did not match the source. No modified page was displayed.");
+      html = html.replace(oldText, newText);
     }
 
-    if (
-      html.includes('id="materialFilter"') ||
-      html.includes('id="brandFilter"') ||
-      html.includes("safe(p.material||'Case')")
-    ) {
-      throw new Error("Material and phone-brand filters were not fully removed.");
+    if (html.includes('id="materialFilter"') || html.includes('id="brandFilter"') || html.includes("safe(p.material||'Case')")) {
+      throw new Error("Material/brand filters were not fully removed. No modified page was displayed.");
     }
 
-    if (!html.includes("</body>")) {
-      throw new Error("Could not find the storefront body end tag.");
-    }
-
-    const scripts =
-  '<script src="./graceantjoy-payment-flow.js?v=4"></script><script src="./graceantjoy-ig-order-notification.js"><' +
-  '/script><script src="./graceantjoy-my-orders.js"><' +
-  '/script></body>';
-
+    // Cache-bust the single payment handler so mobile browsers fetch the latest version.
+    const scripts = '<script src="./graceantjoy-payment-flow.js?v=20261011-2"><' +
+      '/script><script src="./graceantjoy-ig-order-notification.js"><' +
+      '/script><script src="./graceantjoy-my-orders.js"><' +
+      '/script></body>';
+    if (!html.includes("</body>")) throw new Error("Could not find the storefront body end tag.");
     html = html.replace("</body>", scripts);
 
     document.open();
     document.write(html);
     document.close();
-
   } catch (error) {
     console.error("Graceantjoy storefront loading failed:", error);
-    status.textContent =
-      "The store could not load: " +
-      error.message +
-      " Please check index.html and the linked JavaScript files.";
+    status.textContent = "The store could not load: " + (error && error.message ? error.message : "Unknown error");
   }
 })();
 </script>
