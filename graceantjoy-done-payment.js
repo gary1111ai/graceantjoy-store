@@ -174,9 +174,9 @@
     done.id = "gj-done-payment-button";
     done.type = "button";
     done.textContent = text(
-      "Done Payment — please copy details below to us",
-      "已完成付款 — 请复制以下订单给我们"
-    );
+  "Payment Completed — Copy Order Details",
+  "已完成付款 — 请复制以下订单给我们"
+);
 
     const panel = document.createElement("div");
     panel.id = "gj-order-panel";
