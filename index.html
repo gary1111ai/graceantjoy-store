@@ -302,36 +302,40 @@
 
   /* 顶部导航加入查询订单按钮 */
   function setupHeader() {
-    const header = document.querySelector(".header");
-    if (!header) return;
-
-    const controls = header.querySelector("div");
-    if (!controls) return;
-
-    if (!$("gj-track-order-shortcut")) {
-      const button = document.createElement("button");
-      button.id = "gj-track-order-shortcut";
-      button.type = "button";
-      button.className = "btn";
-
-      button.onclick = function () {
-        const orderButton = $("gj-my-orders-button");
-
-        if (orderButton) {
-          orderButton.click();
-        } else {
-          showToast(
-            text(
-              "订单查询功能正在加载，请稍后再试",
-              "Order tracking is loading. Please try again."
-            )
-          );
-        }
-      };
-
-      const languageButton = $("languageToggle");
-      controls.insertBefore(button, languageButton);
+  const header = document.querySelector(".header");
+  if (!header) return;
+  const controls = header.querySelector("div");
+  if (!controls) return;
+  // 删除原本的「我的订单」按钮，避免重复
+  const oldButton = document.getElementById("gj-my-orders-button");
+  if (oldButton) {
+    oldButton.remove();
+  }
+  // 只保留一个「查询订单」按钮
+  let button = document.getElementById("gj-track-order-shortcut");
+  if (!button) {
+    button = document.createElement("button");
+    button.id = "gj-track-order-shortcut";
+    button.type = "button";
+    button.className = "btn";
+    const languageButton = document.getElementById("languageToggle");
+    controls.insertBefore(button, languageButton);
+  }
+  button.onclick = function () {
+    const orderButton = document.getElementById("gj-my-orders-button");
+    if (orderButton) {
+      orderButton.click();
+      return;
     }
+    showToast(
+      currentLang() === "zh"
+        ? "订单查询功能正在加载，请稍后再试"
+        : "Order tracking is loading. Please try again."
+    );
+  };
+  button.textContent =
+    currentLang() === "zh" ? "查询订单" : "Track Order";
+}
 
     updateLabels();
   }
