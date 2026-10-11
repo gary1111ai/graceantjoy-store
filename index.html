@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,20 +6,8 @@
 <meta name="theme-color" content="#fff5f7">
 <title>Graceantjoy — Phone Cases with a Little Joy</title>
 <style>
-body {
-  font-family: Arial, sans-serif;
-  background: #fff5f7;
-  color: #30272b;
-  padding: 24px;
-  line-height: 1.6;
-}
-main {
-  max-width: 620px;
-  margin: 8vh auto;
-  background: #fff;
-  border-radius: 18px;
-  padding: 24px;
-}
+body{font-family:Arial,sans-serif;background:#fff5f7;color:#30272b;padding:24px;line-height:1.6}
+main{max-width:620px;margin:8vh auto;background:#fff;border-radius:18px;padding:24px}
 </style>
 </head>
 <body>
@@ -28,126 +15,45 @@ main {
   <strong>Graceantjoy</strong>
   <p id="status">Loading store…</p>
 </main>
-
 <script>
 (async function () {
   const status = document.getElementById("status");
-
-  const sourceUrl =
-    "https://raw.githubusercontent.com/gary1111ai/graceantjoy-store/2e3fc9cd9c8e04f28152840c7b64db85a4e56e24/index.html";
-
+  const sourceUrl = "https://raw.githubusercontent.com/gary1111ai/graceantjoy-store/2e3fc9cd9c8e04f28152840c7b64db85a4e56e24/index.html";
   try {
-    const response = await fetch(sourceUrl, {
-      cache: "no-store"
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        "Could not load original storefront (" +
-        response.status +
-        ")."
-      );
-    }
-
+    const response = await fetch(sourceUrl, { cache: "no-store" });
+    if (!response.ok) throw new Error("Could not load original storefront (" + response.status + ").");
     let html = await response.text();
-
-    /*
-      RESTORE ORIGINAL PAYMENT UPLOAD
-
-      Important:
-      Do not replace the original uploadProofBtn click handler.
-      The original handler uploads the image to Supabase Storage
-      and calls save_payment_proof to save the image path.
-    */
-
+    const startMarker = "$('uploadProofBtn').addEventListener('click',async function(){";
+    const endMarker = "finally{btn.disabled=false}});";
+    const start = html.indexOf(startMarker);
+    const end = html.indexOf(endMarker, start);
+    if (start < 0 || end < 0) throw new Error("Could not locate the old upload handler. No modified page was displayed.");
+    const placeholder = "$('uploadProofBtn').addEventListener('click',function(event){event.preventDefault();});";
+    html = html.slice(0, start) + placeholder + html.slice(end + endMarker.length);
     const replacements = [
-      [
-        '<div class="filters"><input class="field" id="search" placeholder="Search cases or phone model"><select class="field" id="styleFilter"><option value="">All styles</option></select><select class="field" id="materialFilter"><option value="">All materials</option><option>Hard Case</option><option>Soft Case</option><option>Other</option></select><select class="field" id="brandFilter"><option value="">All phone brands</option><option>Apple</option><option>Samsung</option><option>Huawei</option><option>Xiaomi</option><option>Other</option></select></div>',
-        '<div class="filters"><input class="field" id="search" placeholder="Search cases or phone model"><select class="field" id="styleFilter"><option value="">All styles</option></select></div>'
-      ],
-      [
-        '.filters{display:grid;grid-template-columns:1fr 170px 170px 170px;gap:9px;margin-bottom:18px}',
-        '.filters{display:grid;grid-template-columns:1fr 170px;gap:9px;margin-bottom:18px}'
-      ],
-      [
-        "var q=$('search').value.trim().toLowerCase(),style=$('styleFilter').value,mat=$('materialFilter').value,brand=$('brandFilter').value;var list=products.filter(p=>(!q||[p.name,p.style,p.material,p.brand,p.description,...(p.models||[])].join(' ').toLowerCase().includes(q))&&(!style||p.style===style)&&(!mat||p.material===mat)&&(!brand||p.brand===brand));",
-        "var q=$('search').value.trim().toLowerCase(),style=$('styleFilter').value;var list=products.filter(p=>(!q||[p.name,p.style,p.material,p.brand,p.description,...(p.models||[])].join(' ').toLowerCase().includes(q))&&(!style||p.style===style));"
-      ],
-      [
-        "+' · '+safe(p.material||'Case')+'</div><h3>",
-        "+'</div><h3>"
-      ],
-      [
-        "['search','styleFilter','materialFilter','brandFilter']",
-        "['search','styleFilter']"
-      ],
-      [
-        "$('materialFilter').options[0].text=t('allMaterials');$('brandFilter').options[0].text=t('allBrands');",
-        ""
-      ]
+      ['<div class="filters"><input class="field" id="search" placeholder="Search cases or phone model"><select class="field" id="styleFilter"><option value="">All styles</option></select><select class="field" id="materialFilter"><option value="">All materials</option><option>Hard Case</option><option>Soft Case</option><option>Other</option></select><select class="field" id="brandFilter"><option value="">All phone brands</option><option>Apple</option><option>Samsung</option><option>Huawei</option><option>Xiaomi</option><option>Other</option></select></div>', '<div class="filters"><input class="field" id="search" placeholder="Search cases or phone model"><select class="field" id="styleFilter"><option value="">All styles</option></select></div>'],
+      ['.filters{display:grid;grid-template-columns:1fr 170px 170px 170px;gap:9px;margin-bottom:18px}', '.filters{display:grid;grid-template-columns:1fr 170px;gap:9px;margin-bottom:18px}'],
+      ["var q=$('search').value.trim().toLowerCase(),style=$('styleFilter').value,mat=$('materialFilter').value,brand=$('brandFilter').value;var list=products.filter(p=>(!q||[p.name,p.style,p.material,p.brand,p.description,...(p.models||[])].join(' ').toLowerCase().includes(q))&&(!style||p.style===style)&&(!mat||p.material===mat)&&(!brand||p.brand===brand));", "var q=$('search').value.trim().toLowerCase(),style=$('styleFilter').value;var list=products.filter(p=>(!q||[p.name,p.style,p.material,p.brand,p.description,...(p.models||[])].join(' ').toLowerCase().includes(q))&&(!style||p.style===style));"],
+      ["+' · '+safe(p.material||'Case')+'</div><h3>", "+'</div><h3>"],
+      ["['search','styleFilter','materialFilter','brandFilter']", "['search','styleFilter']"],
+      ["$('materialFilter').options[0].text=t('allMaterials');$('brandFilter').options[0].text=t('allBrands');", ""]
     ];
-
     for (const pair of replacements) {
-      if (!html.includes(pair[0])) {
-        throw new Error(
-          "A storefront update did not match the source. " +
-          "No modified page was displayed."
-        );
-      }
-
+      if (!html.includes(pair[0])) throw new Error("A storefront update did not match the source. No modified page was displayed.");
       html = html.replace(pair[0], pair[1]);
     }
-
-    if (
-      html.includes('id="materialFilter"') ||
-      html.includes('id="brandFilter"') ||
-      html.includes("safe(p.material||'Case')")
-    ) {
-      throw new Error(
-        "Material/brand filters were not fully removed."
-      );
-    }
-
-    /*
-      Keep the original payment upload handler.
-      Do not load graceantjoy-payment-flow.js because it
-      intercepts the same upload button.
-
-      Keep the order history feature.
-    */
-
-    
-    const scripts =
-      '<script src="./graceantjoy-my-orders.js"><' +
-      '/script><script src="./graceantjoy-done-payment.js?v=1"><' +
+    if (html.includes('id="materialFilter"') || html.includes('id="brandFilter"') || html.includes("safe(p.material||'Case')")) throw new Error("Material/brand filters were not fully removed. No modified page was displayed.");
+    // Payment upload and confirmation are now handled only by payment-flow.js.
+    // Do not load graceantjoy-ig-order-notification.js; it creates a second competing confirmation UI.
+    const scripts = '<script src="./graceantjoy-payment-flow.js?v=20261011-3"><' +
+      '/script><script src="./graceantjoy-my-orders.js"><' +
       '/script></body>';
-
-
-    if (!html.includes("</body>")) {
-      throw new Error(
-        "Could not find the storefront body end tag."
-      );
-    }
-
+    if (!html.includes("</body>")) throw new Error("Could not find the storefront body end tag.");
     html = html.replace("</body>", scripts);
-
-    document.open();
-    document.write(html);
-    document.close();
-
+    document.open(); document.write(html); document.close();
   } catch (error) {
-    console.error(
-      "Graceantjoy storefront loading failed:",
-      error
-    );
-
-    status.textContent =
-      "The store could not load: " +
-      (
-        error && error.message
-          ? error.message
-          : "Unknown error"
-      );
+    console.error("Graceantjoy storefront loading failed:", error);
+    status.textContent = "The store could not load: " + (error && error.message ? error.message : "Unknown error");
   }
 })();
 </script>
