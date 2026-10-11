@@ -13,17 +13,29 @@
     return document.getElementById(id);
   }
 
-  function getClient() {
-    if (window.db && typeof window.db.storage === "object") {
-      return window.db;
-    }
+  
+function getClient() {
+  const candidates = [
+    window.db,
+    window.supabaseClient,
+    window.supabaseDb,
+    window._supabase
+  ];
 
-    if (window.supabaseClient) {
-      return window.supabaseClient;
+  for (const client of candidates) {
+    if (
+      client &&
+      client.storage &&
+      typeof client.storage.from === "function" &&
+      typeof client.rpc === "function"
+    ) {
+      return client;
     }
-
-    return null;
   }
+
+  return null;
+}
+
 
   function getOrderNumber() {
     return (
