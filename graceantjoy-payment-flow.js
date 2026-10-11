@@ -14,24 +14,31 @@
   }
 
   
-function getClient() {
-  const candidates = [
-    window.db,
-    window.supabaseClient,
-    window.supabaseDb,
-    window._supabase
-  ];
 
-  for (const client of candidates) {
-    if (
-      client &&
-      client.storage &&
-      typeof client.storage.from === "function" &&
-      typeof client.rpc === "function"
-    ) {
-      return client;
-    }
+function getClient() {
+  if (
+    window.graceantjoySupabaseClient &&
+    typeof window.graceantjoySupabaseClient.rpc === "function"
+  ) {
+    return window.graceantjoySupabaseClient;
   }
+
+  if (
+    window.supabase &&
+    typeof window.supabase.createClient === "function"
+  ) {
+    window.graceantjoySupabaseClient =
+      window.supabase.createClient(
+        "https://udpjnirtmuzmiwmgelua.supabase.co",
+        "sb_publishable_IpMDj4zQ9B3GuMW4JAH0SA_MgqdDC0G"
+      );
+
+    return window.graceantjoySupabaseClient;
+  }
+
+  console.error(
+    "[Graceantjoy] Supabase JS SDK is not loaded."
+  );
 
   return null;
 }
