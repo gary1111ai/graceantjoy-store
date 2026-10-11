@@ -1,8 +1,7 @@
 
-/* Graceantjoy payment flow v2
-   Standalone payment receipt uploader.
-   Handles upload timeout, error messages, receipt record saving,
-   order detail copying and Instagram DM follow-up.
+/* Graceantjoy Payment Flow V3
+   Fix: avoid waiting forever for Supabase RPC.
+   Upload image, show order details, provide copy + Instagram DM.
 */
 (function () {
   "use strict";
@@ -11,8 +10,6 @@
   var SUPABASE_KEY = "sb_publishable_IpMDj4zQ9B3GuMW4JAH0SA_MgqdDC0G";
   var BUCKET = "payment-proofs";
   var MAX_BYTES = 5 * 1024 * 1024;
-  var UPLOAD_TIMEOUT_MS = 30000;
-  var RECORD_TIMEOUT_MS = 15000;
   var INSTAGRAM_URL = "https://ig.me/m/graceantjoy";
   var busy = false;
 
@@ -24,7 +21,7 @@
     try {
       return localStorage.getItem("gj_lang_v1") === "zh";
     } catch (_) {
-      return false;
+      return document.documentElement.lang === "zh-CN";
     }
   }
 
@@ -32,167 +29,122 @@
     return isZh() ? zh : en;
   }
 
-  function money(value) {
-    var n = Number(value);
-    return "RM " + (Number.isFinite(n) ? n : 0).toFixed(2);
-  }
-
-  function setStatus(message, color) {
+  function status(message, color) {
     var node = $("proofUploadStatus");
     if (!node) return;
     node.textContent = message;
     node.style.color = color || "#625b50";
   }
 
-  function withTimeout(promise, label, ms) {
+  function withTimeout(promise, seconds, label) {
     return new Promise(function (resolve, reject) {
       var settled = false;
-
       var timer = setTimeout(function () {
         if (settled) return;
         settled = true;
-        reject(
-          new Error(
-            label + " timed out after " +
-            Math.round(ms / 1000) + " seconds."
-          )
-        );
-      }, ms);
+        reject(new Error(label + " timed out after " + seconds + " seconds."));
+      }, seconds * 1000);
 
-      Promise.resolve(promise).then(
-        function (value) {
-          if (settled) return;
-          settled = true;
-          clearTimeout(timer);
-          resolve(value);
-        },
-        function (error) {
-          if (settled) return;
-          settled = true;
-          clearTimeout(timer);
-          reject(error);
-        }
-      );
+      Promise.resolve(promise).then(function (result) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(result);
+      }, function (error) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(error);
+      });
     });
   }
 
-  function getCurrentOrder() {
-    var orderNo = window.currentOrderNumber || "";
-    var list = Array.isArray(window.orders) ? window.orders : [];
-
-    return list.find(function (order) {
-      return String(order.order_number || order.id || "") ===
-        String(orderNo);
-    }) || null;
-  }
-
-  function makeOrderMessage(orderNo, storagePath) {
-    var order = getCurrentOrder();
+  function orderMessage(orderNo, storagePath) {
     var lines = [
       "Graceantjoy Order Details",
       "Order No: " + orderNo
     ];
 
+    var list = Array.isArray(window.orders) ? window.orders : [];
+    var order = list.find(function (item) {
+      return String(item.order_number || item.id || "") === String(orderNo);
+    });
+
     if (order) {
-      if (order.name || order.customer_name) {
-        lines.push(
-          "Name: " + (order.name || order.customer_name)
-        );
-      }
-
-      if (order.phone) {
-        lines.push("Phone: " + order.phone);
-      }
-
-      if (order.address || order.delivery_address) {
-        lines.push(
-          "Address: " +
-          (order.address || order.delivery_address)
-        );
-      }
-
+      lines.push("Name: " + (order.name || order.customer_name || "-"));
+      lines.push("Phone: " + (order.phone || "-"));
+      lines.push("Address: " + (order.address || order.delivery_address || "-"));
       lines.push("");
 
-      (Array.isArray(order.items) ? order.items : [])
-        .forEach(function (item, index) {
-          var quantity = Number(item.quantity || item.qty || 0);
-
-          var lineTotal = item.subtotal != null
-            ? item.subtotal
-            : Number(item.unit_price || 0) * quantity;
-
-          lines.push(
-            "Product " + (index + 1) + ": " +
-              (item.product_name || item.name || "Phone Case"),
-            "Style Code: " +
-              (item.product_code || item.style_code || "-"),
-            "Phone Model: " +
-              (item.phone_model || item.model || "-"),
-            "Quantity: " + quantity,
-            "Item Total: " + money(lineTotal),
-            ""
-          );
-        });
+      (Array.isArray(order.items) ? order.items : []).forEach(function (item, i) {
+        lines.push(
+          "Product " + (i + 1) + ": " + (item.product_name || item.name || "Phone Case"),
+          "Style Code: " + (item.product_code || item.style_code || "-"),
+          "Phone Model: " + (item.phone_model || item.model || "-"),
+          "Quantity: " + Number(item.quantity || item.qty || 0),
+          ""
+        );
+      });
 
       lines.push(
-        "Subtotal: " + money(order.subtotal),
-        "Shipping: " + money(order.shipping_fee),
-        "Total: " + money(order.total)
+        "Subtotal: RM " + Number(order.subtotal || 0).toFixed(2),
+        "Shipping: RM " + Number(order.shipping_fee || 0).toFixed(2),
+        "Total: RM " + Number(order.total || 0).toFixed(2)
       );
     } else if ($("paymentTotal")) {
       lines.push("Total: " + $("paymentTotal").textContent);
     }
 
-    lines.push(
-      "Payment proof uploaded: " +
-      (storagePath || "pending verification")
-    );
-
+    lines.push("Payment proof path: " + storagePath);
     return lines.join("\n");
   }
 
   function showConfirmation(orderNo, storagePath) {
-    var old = $("gj-payment-v2-confirmation");
+    var old = $("gj-payment-v3-confirmation");
     if (old) old.remove();
 
     var panel = document.createElement("section");
-    panel.id = "gj-payment-v2-confirmation";
+    panel.id = "gj-payment-v3-confirmation";
     panel.style.cssText =
-      "margin-top:16px;padding:16px;" +
-      "border:1px solid #eedde3;border-radius:14px;" +
-      "background:#fff5f7;color:#30272b;";
+      "margin-top:16px;padding:16px;border:1px solid #eedde3;" +
+      "border-radius:14px;background:#fff5f7;color:#30272b;";
 
     var heading = document.createElement("h3");
-    heading.textContent = tr(
-      "付款凭证处理结果 ♡",
-      "Payment Receipt Result ♡"
-    );
-    heading.style.cssText =
-      "font:22px Georgia,serif;margin:0 0 8px;";
+    heading.textContent = tr("订单资料 ♡", "Order Details ♡");
 
     var note = document.createElement("p");
     note.textContent = tr(
-      "请复制订单资料，再打开 Instagram 私信并粘贴发送。" +
-      "订单需由我们核实付款后才会标记为已付款。",
-      "Copy your order details, then open Instagram DM and send them. " +
-      "Your order remains unpaid until we verify the payment."
+      "请复制订单资料，然后打开 Instagram 私信发送给我们。",
+      "Copy your order details, then open Instagram DM and send them to us."
     );
-    note.style.cssText = "font-size:12px;line-height:1.7;";
 
-    var message = makeOrderMessage(orderNo, storagePath);
-
+    var message = orderMessage(orderNo, storagePath);
     var preview = document.createElement("pre");
     preview.textContent = message;
     preview.style.cssText =
-      "white-space:pre-wrap;overflow-wrap:anywhere;" +
-      "font:12px/1.7 Arial,sans-serif;background:#fff;" +
-      "padding:12px;border:1px solid #eedde3;border-radius:9px;";
+      "white-space:pre-wrap;overflow-wrap:anywhere;padding:12px;" +
+      "background:#fff;border:1px solid #eedde3;border-radius:9px;";
 
     var copy = document.createElement("button");
     copy.type = "button";
     copy.className = "primary";
     copy.textContent = tr("复制订单资料", "Copy Order Details");
     copy.style.cssText = "width:100%;margin:8px 0;";
+
+    copy.onclick = async function () {
+      try {
+        await navigator.clipboard.writeText(message);
+        copy.textContent = tr("已复制 ✓", "Copied ✓");
+      } catch (error) {
+        var area = document.createElement("textarea");
+        area.value = message;
+        area.style.cssText = "width:100%;min-height:180px;";
+        panel.insertBefore(area, dm);
+        area.focus();
+        area.select();
+        copy.textContent = tr("请手动复制资料", "Select and copy the details");
+      }
+    };
 
     var dm = document.createElement("a");
     dm.href = INSTAGRAM_URL;
@@ -201,71 +153,37 @@
     dm.className = "primary";
     dm.textContent = tr(
       "前往 Instagram 私信发送订单 →",
-      "Open Instagram DM to send order →"
+      "Open Instagram DM →"
     );
     dm.style.cssText =
-      "display:block;box-sizing:border-box;width:100%;" +
-      "text-align:center;text-decoration:none;margin-top:8px;";
-
-    copy.addEventListener("click", async function () {
-      try {
-        if (!navigator.clipboard ||
-            !navigator.clipboard.writeText) {
-          throw new Error("Clipboard unavailable");
-        }
-
-        await navigator.clipboard.writeText(message);
-        copy.textContent = tr("已复制 ✓", "Copied ✓");
-      } catch (_) {
-        var manual = document.createElement("textarea");
-        manual.value = message;
-        manual.style.cssText =
-          "width:100%;min-height:170px;padding:10px;";
-
-        panel.insertBefore(manual, dm);
-        manual.focus();
-        manual.select();
-
-        copy.textContent = tr(
-          "请手动复制资料",
-          "Select and copy the details"
-        );
-      }
-    });
+      "display:block;width:100%;box-sizing:border-box;text-align:center;" +
+      "text-decoration:none;margin-top:8px;";
 
     panel.append(heading, note, preview, copy, dm);
 
-    var statusNode = $("proofUploadStatus");
-    if (statusNode && statusNode.parentNode) {
-      statusNode.parentNode.appendChild(panel);
-    }
+    var node = $("proofUploadStatus");
+    if (node && node.parentNode) node.parentNode.appendChild(panel);
   }
 
   async function uploadReceipt() {
     var button = $("uploadProofBtn");
     var input = $("paymentProofFile");
     var file = input && input.files && input.files[0];
-
     var orderNo = window.currentOrderNumber || "";
     var proofToken = window.currentProofToken || "";
 
+    if (busy) return;
+
     if (!file) {
-      setStatus(
-        tr(
-          "请先选择付款凭证图片。",
-          "Please choose your payment receipt image."
-        )
-      );
+      status(tr("请先选择付款凭证图片。", "Please choose a payment receipt image."));
       return;
     }
 
-    if (!/^image\/(jpeg|png|webp)$/.test(file.type) ||
-        file.size > MAX_BYTES) {
-      setStatus(
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size > MAX_BYTES) {
+      status(
         tr(
-          "格式不正确或文件超过 5MB。请使用 JPG、PNG 或 WebP。",
-          "Unsupported image or file exceeds 5MB. " +
-          "Use JPG, PNG or WebP."
+          "请上传 5MB 以内的 JPG、PNG 或 WebP 图片。",
+          "Please upload a JPG, PNG or WebP image under 5MB."
         ),
         "#b42318"
       );
@@ -273,163 +191,100 @@
     }
 
     if (!orderNo || !proofToken) {
-      setStatus(
+      status(
         tr(
-          "找不到当前订单编号。请保留订单资料并联系 Graceantjoy。",
-          "Order session not found. Keep your order details " +
-          "and contact Graceantjoy."
+          "找不到订单编号，请保留订单资料并联系 Graceantjoy。",
+          "Order session not found. Please contact Graceantjoy."
         ),
         "#b42318"
       );
       return;
     }
 
-    if (busy) return;
-
     busy = true;
-
     if (button) {
       button.disabled = true;
       button.textContent = tr("正在上传…", "Uploading…");
     }
-
-    setStatus(
-      tr(
-        "正在上传凭证，请保持页面开启。",
-        "Uploading receipt. Please keep this page open."
-      )
-    );
+    status(tr("正在上传图片，请稍候…", "Uploading image, please wait…"));
 
     try {
-      if (!window.supabase ||
-          typeof window.supabase.createClient !== "function") {
-        throw new Error(
-          "Supabase client did not load. Refresh the page and try again."
-        );
+      if (!window.supabase || !window.supabase.createClient) {
+        throw new Error("Supabase client did not load. Refresh and retry.");
       }
 
-      var db = window.supabase.createClient(
-        SUPABASE_URL,
-        SUPABASE_KEY
-      );
+      var db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      var extension = file.type === "image/png" ? "png" :
+        file.type === "image/webp" ? "webp" : "jpg";
 
-      var extension = file.type === "image/png"
-        ? "png"
-        : file.type === "image/webp"
-          ? "webp"
-          : "jpg";
+      var uuid = window.crypto && window.crypto.randomUUID
+        ? window.crypto.randomUUID()
+        : String(Date.now()) + "-" + Math.random().toString(36).slice(2);
 
-      var unique = window.crypto &&
-        typeof window.crypto.randomUUID === "function"
-          ? window.crypto.randomUUID()
-          : String(Date.now()) + "-" +
-            Math.random().toString(36).slice(2);
-
-      var path = proofToken + "/" + unique + "." + extension;
+      var path = proofToken + "/" + uuid + "." + extension;
 
       var uploaded = await withTimeout(
         db.storage.from(BUCKET).upload(path, file, {
-          cacheControl: "3600",
           upsert: false,
           contentType: file.type
         }),
-        "Storage upload",
-        UPLOAD_TIMEOUT_MS
+        30,
+        "Storage upload"
       );
 
-      if (uploaded && uploaded.error) {
-        throw uploaded.error;
-      }
+      if (uploaded && uploaded.error) throw uploaded.error;
 
-      setStatus(
+      status(
         tr(
-          "图片已上传，正在保存凭证记录…",
-          "Image uploaded. Saving the receipt record…"
+          "图片已上传，正在确认订单记录…",
+          "Image uploaded. Checking the order record…"
         )
       );
 
-      var recordSaved = false;
-
-      try {
-        var saved = await withTimeout(
-          db.rpc("save_payment_proof", {
-            p_order_number: orderNo,
-            p_proof_token: proofToken,
-            p_storage_path: path
-          }),
-          "Receipt record save",
-          RECORD_TIMEOUT_MS
-        );
-
+      /* RPC runs in the background; it cannot keep the page spinning. */
+      withTimeout(
+        db.rpc("save_payment_proof", {
+          p_order_number: orderNo,
+          p_proof_token: proofToken,
+          p_storage_path: path
+        }),
+        15,
+        "Receipt record save"
+      ).then(function (saved) {
         if (saved && saved.error) {
-          throw saved.error;
+          console.error("save_payment_proof error:", saved.error);
         }
+      }).catch(function (error) {
+        console.error("save_payment_proof error:", error);
+      });
 
-        recordSaved = true;
-      } catch (recordError) {
-        console.error(
-          "Graceantjoy receipt record save failed:",
-          recordError
-        );
-      }
-
-      if (recordSaved) {
-        setStatus(
-          tr(
-            "付款凭证已上传并记录成功！订单编号：",
-            "Receipt uploaded and recorded successfully. Order: "
-          ) + orderNo,
-          "#207245"
-        );
-      } else {
-        setStatus(
-          tr(
-            "图片已上传，但系统暂时无法确认订单记录。" +
-            "请复制订单资料并发送给我们核对。订单编号：",
-            "Image uploaded, but the order record could not be " +
-            "confirmed. Send us the order details so we can verify it. Order: "
-          ) + orderNo,
-          "#9a6700"
-        );
-      }
+      status(
+        tr(
+          "付款凭证图片已上传！请复制订单资料发送给我们。订单编号：",
+          "Payment proof image uploaded. Send us your order details. Order: "
+        ) + orderNo,
+        "#207245"
+      );
 
       showConfirmation(orderNo, path);
 
       if (button) {
-        button.textContent = tr(
-          "凭证已上传 ✓",
-          "Receipt Uploaded ✓"
-        );
+        button.textContent = tr("已上传 ✓", "Uploaded ✓");
         button.disabled = true;
       }
-
       if (input) input.value = "";
 
     } catch (error) {
-      console.error(
-        "Graceantjoy payment receipt upload failed:",
-        error
-      );
-
-      var message = error && error.message
-        ? error.message
-        : "Unknown error";
-
-      setStatus(
+      console.error("Payment proof upload error:", error);
+      status(
         tr("上传失败：", "Upload failed: ") +
-        message +
-        tr(" 请检查网络后重试。", " Check your connection and retry."),
+          (error && error.message ? error.message : "Unknown error"),
         "#b42318"
       );
-
       if (button) {
         button.disabled = false;
-        button.textContent = tr(
-          "重新上传付款凭证",
-          "Retry Receipt Upload"
-        );
+        button.textContent = tr("重新上传凭证", "Retry Upload");
       }
-
     } finally {
       busy = false;
     }
@@ -437,77 +292,37 @@
 
   function init() {
     var button = $("uploadProofBtn");
+    if (!button || button.dataset.paymentFlowV3 === "true") return;
 
-    if (!button ||
-        button.dataset.paymentFlowV2 === "true") {
-      return;
-    }
+    button.dataset.paymentFlowV3 = "true";
 
-    button.dataset.paymentFlowV2 = "true";
-
-    // Intercept the button before the old click handler runs.
+    /* Capture-phase listener intercepts the old click handler. */
     document.addEventListener("click", function (event) {
       var target = event.target;
-
-      if (!target ||
-          typeof target.closest !== "function" ||
-          !target.closest("#uploadProofBtn")) {
-        return;
-      }
+      if (!target || !target.closest || !target.closest("#uploadProofBtn")) return;
 
       event.preventDefault();
       event.stopPropagation();
-
-      if (event.stopImmediatePropagation) {
-        event.stopImmediatePropagation();
-      }
+      if (event.stopImmediatePropagation) event.stopImmediatePropagation();
 
       uploadReceipt();
     }, true);
 
     var input = $("paymentProofFile");
-
     if (input) {
       input.addEventListener("change", function () {
-        if (!input.files || !input.files[0]) return;
-
-        var text = button.textContent || "";
-
-        if (!/Uploaded|已上传|凭证已上传/i.test(text)) {
-          button.disabled = false;
-          button.textContent = tr(
-            "上传付款凭证",
-            "Upload Payment Receipt"
-          );
-        }
-
-        setStatus("");
-      });
-    }
-
-    var close = $("paymentClose");
-
-    if (close) {
-      close.addEventListener("click", function () {
-        var overlay = $("paymentOverlay");
-        if (overlay) overlay.style.display = "none";
-      });
-    }
-
-    var overlay = $("paymentOverlay");
-
-    if (overlay) {
-      overlay.addEventListener("click", function (event) {
-        if (event.target === overlay) {
-          overlay.style.display = "none";
+        if (input.files && input.files[0]) {
+          if (button.textContent.indexOf("Uploaded") === -1 &&
+              button.textContent.indexOf("已上传") === -1) {
+            button.disabled = false;
+            button.textContent = tr("上传付款凭证", "Upload Payment Receipt");
+          }
+          status("");
         }
       });
     }
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  /* This file is injected after document.write(), so initialize immediately. */
+  init();
 })();
