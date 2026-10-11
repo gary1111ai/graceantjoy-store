@@ -1,34 +1,155 @@
-<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#fff5f7"><title>Graceantjoy</title><style>body{font:16px Arial;background:#fff5f7;color:#30272b;padding:24px}main{max-width:620px;margin:8vh auto;background:white;border-radius:18px;padding:24px}</style></head>
-<body><main><strong>Graceantjoy</strong><p id="status">Loading store…</p></main>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#fff5f7">
+<title>Graceantjoy — Phone Cases with a Little Joy</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #fff5f7;
+  color: #30272b;
+  padding: 24px;
+  line-height: 1.6;
+}
+main {
+  max-width: 620px;
+  margin: 8vh auto;
+  background: #fff;
+  border-radius: 18px;
+  padding: 24px;
+}
+</style>
+</head>
+<body>
+<main>
+  <strong>Graceantjoy</strong>
+  <p id="status">Loading store…</p>
+</main>
+
 <script>
-(async function(){
-const status=document.getElementById('status');
-try{
-const url='https://raw.githubusercontent.com/gary1111ai/graceantjoy-store/2e3fc9cd9c8e04f28152840c7b64db85a4e56e24/index.html';
-const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw Error('Could not load storefront ('+res.status+')');
-let h=await res.text();
-const r=[
-['.header{display:flex;justify-content:space-between;align-items:center;padding:18px 0}','.header{position:sticky;top:0;z-index:1000;background:#fffdfd;box-shadow:0 4px 16px #30272b0a;display:flex;justify-content:space-between;align-items:center;padding:10px 0}'],
-['.cart-line{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding:13px 0;font-size:12px}','.cart-line{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding:13px 0;font-size:12px}.cart-thumb{width:76px;height:96px;object-fit:contain;border:1px solid var(--line);border-radius:10px;background:#fff;flex-shrink:0}.cart-line-main{flex:1;min-width:0}.cart-line-price{text-align:right;flex-shrink:0}.cart-add-notice{position:fixed;right:18px;bottom:18px;z-index:3000;background:#9d526d;color:white;padding:13px 18px;border-radius:14px;box-shadow:0 8px 25px #0002;max-width:calc(100vw - 36px)}.add.added-confirm{background:#dcefe3;color:#245b3b}'],
-['placeholder="Search cases or phone model"','placeholder="Search for your favourite products"'],
-["search:'Search cases or phone model'","search:'Search for your favourite products'"],
-["search:'搜索手机壳或手机型号'","search:'搜索你心仪的商品'"],
-["choose:'Choose phone model'","choose:'Select style / model'"],
-["choose:'选择手机型号'","choose:'选择款式 / 型号'"],
-["emptySearch:'No cases match your search ♡'","emptySearch:'No products match your search ♡'"],
-["emptySearch:'没有找到符合条件的手机壳 ♡'","emptySearch:'没有找到符合条件的商品 ♡'"],
-["button: \"My Orders\"","button: \"Track Order\""],
-['return p?\\'<div class="cart-line"><div><strong>\\'+safe(p.name)+\\'</strong><small>\\'+safe(x.model)+\\'<br>\\'+Number(x.qty)+\\' × \\'+money(price(p))+\\'</small><div class="cart-qty"><button type="button" data-qty-change="\\'+i+\\'" data-delta="-1">−</button><strong>\\'+Number(x.qty)+\\'</strong><button type="button" data-qty-change="\\'+i+\\'" data-delta="1">+</button></div></div><div>\\'+money(line?line.amount:regularLineTotal(p,x.qty))+\\'<br><button class="remove" data-remove="\\'+i+\\'">\\'+t(\\'remove\\')+\\'</button></div></div>\\':\\'\\'',
-'return p?\\'<div class="cart-line"><img class="cart-thumb" src="\\'+safe(p.image||"")+'" alt="\\'+safe(p.name)+'" onerror="this.style.display=\\\\\\'none\\\\\\'"><div class="cart-line-main"><strong>\\'+safe(p.name)+\\'</strong><small>\\'+safe(p.productCode||p.style||"")+'<br>\\'+safe(x.model)+\\'<br>\\'+Number(x.qty)+\\' × \\'+money(price(p))+\\'</small><div class="cart-qty"><button type="button" data-qty-change="\\'+i+\\'" data-delta="-1">−</button><strong>\\'+Number(x.qty)+\\'</strong><button type="button" data-qty-change="\\'+i+\\'" data-delta="1">+</button></div></div><div class="cart-line-price">\\'+money(line?line.amount:regularLineTotal(p,x.qty))+\\'<br><button class="remove" data-remove="\\'+i+\\'">\\'+t(\\'remove\\')+\\'</button></div></div>\\':\\'\\''],
-['save();renderCart()}\\n$(\\'products\\').addEventListener','save();renderCart();showCartAdded(id)}\\nfunction showCartAdded(id){var b=document.querySelector(\\'[data-add="\\'+id+\\'"]\\');if(b){var old=b.textContent;b.textContent=t(\\'added\\');b.classList.add(\\'added-confirm\\');setTimeout(function(){b.textContent=old;b.classList.remove(\\'added-confirm\\')},1800)}var n=document.getElementById(\\'cartAddNotice\\');if(!n){n=document.createElement(\\'div\\');n.id=\\'cartAddNotice\\';n.className=\\'cart-add-notice\\';n.setAttribute(\\'role\\',\\'status\\');document.body.appendChild(n)}n.textContent=t(\\'added\\');n.hidden=false;clearTimeout(window.gjCartNoticeTimer);window.gjCartNoticeTimer=setTimeout(function(){n.hidden=true},2200)}\\n$(\\'products\\').addEventListener'],
-["add:'Add to bag ♡'","add:'Add to bag ♡',added:'Added to bag ✓'"],
-["add:'加入购物袋 ♡'","add:'加入购物袋 ♡',added:'已成功加入购物袋 ✓'"]
-];
-for(const [a,b] of r){if(!h.includes(a))throw Error('Safe update could not find: '+a.slice(0,60));h=h.replace(a,b)}
-const extra='<script src="./graceantjoy-my-orders.js"><'+'/script><script src="./graceantjoy-done-payment.js?v=1"><'+'/script><script>(function(){function setLabel(){var b=document.getElementById("gj-my-orders-button");if(b)b.textContent=(localStorage.getItem("gj_lang_v1")||"en")==="zh"?"查询订单":"Track Order"}function init(){setLabel();var l=document.getElementById("languageToggle");if(l)l.addEventListener("click",function(){setTimeout(setLabel,0)});new MutationObserver(setLabel).observe(document.body,{childList:true,subtree:true})}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);else init()})();<'+'/script></body>';
-if(!h.includes('</body>'))throw Error('Storefront body end tag missing');
-h=h.replace('</body>',extra);document.open();document.write(h);document.close();
-}catch(e){console.error(e);status.textContent='The store could not load: '+(e.message||'Unknown error')}
+(async function () {
+  const status = document.getElementById("status");
+
+  const sourceUrl =
+    "https://raw.githubusercontent.com/gary1111ai/graceantjoy-store/2e3fc9cd9c8e04f28152840c7b64db85a4e56e24/index.html";
+
+  try {
+    const response = await fetch(sourceUrl, {
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        "Could not load original storefront (" +
+        response.status +
+        ")."
+      );
+    }
+
+    let html = await response.text();
+
+    /*
+      RESTORE ORIGINAL PAYMENT UPLOAD
+
+      Important:
+      Do not replace the original uploadProofBtn click handler.
+      The original handler uploads the image to Supabase Storage
+      and calls save_payment_proof to save the image path.
+    */
+
+    const replacements = [
+      [
+        '<div class="filters"><input class="field" id="search" placeholder="Search cases or phone model"><select class="field" id="styleFilter"><option value="">All styles</option></select><select class="field" id="materialFilter"><option value="">All materials</option><option>Hard Case</option><option>Soft Case</option><option>Other</option></select><select class="field" id="brandFilter"><option value="">All phone brands</option><option>Apple</option><option>Samsung</option><option>Huawei</option><option>Xiaomi</option><option>Other</option></select></div>',
+        '<div class="filters"><input class="field" id="search" placeholder="Search cases or phone model"><select class="field" id="styleFilter"><option value="">All styles</option></select></div>'
+      ],
+      [
+        '.filters{display:grid;grid-template-columns:1fr 170px 170px 170px;gap:9px;margin-bottom:18px}',
+        '.filters{display:grid;grid-template-columns:1fr 170px;gap:9px;margin-bottom:18px}'
+      ],
+      [
+        "var q=$('search').value.trim().toLowerCase(),style=$('styleFilter').value,mat=$('materialFilter').value,brand=$('brandFilter').value;var list=products.filter(p=>(!q||[p.name,p.style,p.material,p.brand,p.description,...(p.models||[])].join(' ').toLowerCase().includes(q))&&(!style||p.style===style)&&(!mat||p.material===mat)&&(!brand||p.brand===brand));",
+        "var q=$('search').value.trim().toLowerCase(),style=$('styleFilter').value;var list=products.filter(p=>(!q||[p.name,p.style,p.material,p.brand,p.description,...(p.models||[])].join(' ').toLowerCase().includes(q))&&(!style||p.style===style));"
+      ],
+      [
+        "+' · '+safe(p.material||'Case')+'</div><h3>",
+        "+'</div><h3>"
+      ],
+      [
+        "['search','styleFilter','materialFilter','brandFilter']",
+        "['search','styleFilter']"
+      ],
+      [
+        "$('materialFilter').options[0].text=t('allMaterials');$('brandFilter').options[0].text=t('allBrands');",
+        ""
+      ]
+    ];
+
+    for (const pair of replacements) {
+      if (!html.includes(pair[0])) {
+        throw new Error(
+          "A storefront update did not match the source. " +
+          "No modified page was displayed."
+        );
+      }
+
+      html = html.replace(pair[0], pair[1]);
+    }
+
+    if (
+      html.includes('id="materialFilter"') ||
+      html.includes('id="brandFilter"') ||
+      html.includes("safe(p.material||'Case')")
+    ) {
+      throw new Error(
+        "Material/brand filters were not fully removed."
+      );
+    }
+
+    /*
+      Keep the original payment upload handler.
+      Do not load graceantjoy-payment-flow.js because it
+      intercepts the same upload button.
+
+      Keep the order history feature.
+    */
+
+    
+    const scripts =
+      '<script src="./graceantjoy-my-orders.js"><' +
+      '/script><script src="./graceantjoy-done-payment.js?v=1"><' +
+      '/script></body>';
+
+
+    if (!html.includes("</body>")) {
+      throw new Error(
+        "Could not find the storefront body end tag."
+      );
+    }
+
+    html = html.replace("</body>", scripts);
+
+    document.open();
+    document.write(html);
+    document.close();
+
+  } catch (error) {
+    console.error(
+      "Graceantjoy storefront loading failed:",
+      error
+    );
+
+    status.textContent =
+      "The store could not load: " +
+      (
+        error && error.message
+          ? error.message
+          : "Unknown error"
+      );
+  }
 })();
-</script></body></html>
+</script>
+</body>
+</html>
