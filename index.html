@@ -28,15 +28,15 @@ main{max-width:620px;margin:8vh auto;background:#fff5f7;border-radius:18px;paddi
     const replacements = [
       [
         '<div class="filters"><input class="field" id="search" placeholder="Search cases or phone model"><select class="field" id="styleFilter"><option value="">All styles</option></select><select class="field" id="materialFilter"><option value="">All materials</option><option>Hard Case</option><option>Soft Case</option><option>Other</option></select><select class="field" id="brandFilter"><option value="">All phone brands</option><option>Apple</option><option>Samsung</option><option>Huawei</option><option>Xiaomi</option><option>Other</option></select></div>',
-        '<div class="filters"><input class="field" id="search" placeholder="Search cases or phone model"><select class="field" id="styleFilter"><option value="">All styles</option></select><select class="field" id="brandFilter"><option value="">All phone brands</option><option>Apple</option><option>Samsung</option><option>Huawei</option><option>Xiaomi</option><option>Other</option></select></div>'
+        '<div class="filters"><input class="field" id="search" placeholder="Search cases or phone model"><select class="field" id="styleFilter"><option value="">All styles</option></select></div>'
       ],
       [
         '.filters{display:grid;grid-template-columns:1fr 170px 170px 170px;gap:9px;margin-bottom:18px}',
-        '.filters{display:grid;grid-template-columns:1fr 170px 170px;gap:9px;margin-bottom:18px}'
+        '.filters{display:grid;grid-template-columns:1fr 170px;gap:9px;margin-bottom:18px}'
       ],
       [
         "var q=$('search').value.trim().toLowerCase(),style=$('styleFilter').value,mat=$('materialFilter').value,brand=$('brandFilter').value;var list=products.filter(p=>(!q||[p.name,p.style,p.material,p.brand,p.description,...(p.models||[])].join(' ').toLowerCase().includes(q))&&(!style||p.style===style)&&(!mat||p.material===mat)&&(!brand||p.brand===brand));",
-        "var q=$('search').value.trim().toLowerCase(),style=$('styleFilter').value,brand=$('brandFilter').value;var list=products.filter(p=>(!q||[p.name,p.style,p.brand,p.description,...(p.models||[])].join(' ').toLowerCase().includes(q))&&(!style||p.style===style)&&(!brand||p.brand===brand));"
+        "var q=$('search').value.trim().toLowerCase(),style=$('styleFilter').value;var list=products.filter(p=>(!q||[p.name,p.style,p.material,p.brand,p.description,...(p.models||[])].join(' ').toLowerCase().includes(q))&&(!style||p.style===style));"
       ],
       [
         "+' · '+safe(p.material||'Case')+'</div><h3>",
@@ -44,10 +44,10 @@ main{max-width:620px;margin:8vh auto;background:#fff5f7;border-radius:18px;paddi
       ],
       [
         "['search','styleFilter','materialFilter','brandFilter']",
-        "['search','styleFilter','brandFilter']"
+        "['search','styleFilter']"
       ],
       [
-        "$('materialFilter').options[0].text=t('allMaterials');",
+        "$('materialFilter').options[0].text=t('allMaterials');$('brandFilter').options[0].text=t('allBrands');",
         ""
       ]
     ];
@@ -56,8 +56,8 @@ main{max-width:620px;margin:8vh auto;background:#fff5f7;border-radius:18px;paddi
       if (!html.includes(before)) throw new Error('The source storefront has changed; safe automatic editing stopped.');
       html = html.replace(before, after);
     }
-    if (html.includes('id="materialFilter"') || html.includes("safe(p.material||'Case')")) {
-      throw new Error('Material display was not fully removed; automatic editing stopped.');
+    if (html.includes('id="materialFilter"') || html.includes('id="brandFilter"') || html.includes("safe(p.material||'Case')")) {
+      throw new Error('Material and phone-brand filters were not fully removed; automatic editing stopped.');
     }
 
     document.open();
