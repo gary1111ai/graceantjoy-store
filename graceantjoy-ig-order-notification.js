@@ -5,6 +5,9 @@
   const PANEL_ID = "gj-instagram-order-panel";
   const STYLE_ID = "gj-order-panel-style";
 
+  let observer = null;
+  let retryTimer = null;
+
   function getCurrentOrder() {
     const orderInput = document.querySelector("#paymentOrder");
     const orderNumber = orderInput
@@ -53,7 +56,9 @@
       "My payment proof has been uploaded successfully.",
       "",
       "ORDER DETAILS",
-      "Order Number: " + (data.orderNumber || "Please help me identify my order")
+      "Order Number: " + (
+        data.orderNumber || "Please help me identify my order"
+      )
     ];
 
     if (items.length) {
@@ -61,13 +66,17 @@
 
       items.forEach(function (item, index) {
         lines.push((index + 1) + ". " + (
-          item.product_name || item.name || "Phone Case"
+          item.product_name || item.name || item.title || "Phone Case"
         ));
         lines.push("   Style Code: " + (
-          item.product_code || item.style_code || item.product_id || "-"
+          item.product_code ||
+          item.style_code ||
+          item.product_id ||
+          item.sku ||
+          "-"
         ));
         lines.push("   iPhone Model: " + (
-          item.phone_model || item.model || "-"
+          item.phone_model || item.model || item.iphone_model || "-"
         ));
         lines.push("   Quantity: " + (
           item.quantity || item.qty || 1
@@ -81,7 +90,11 @@
     lines.push(
       "",
       "Subtotal: RM " + money(order.subtotal),
-      "Shipping: RM " + money(order.shipping_fee),
+      "Shipping: RM " + money(
+        order.shipping_fee != null
+          ? order.shipping_fee
+          : order.shipping
+      ),
       "TOTAL: RM " + money(order.total),
       "",
       "Please confirm my order. Thank you!"
@@ -97,7 +110,9 @@
     style.id = STYLE_ID;
     style.textContent = `
       #${PANEL_ID} {
+        display: block;
         box-sizing: border-box;
+        width: 100%;
         margin: 16px 0;
         padding: 18px;
         border: 1px solid #d4af37;
@@ -106,13 +121,20 @@
         color: #211d16;
         font-family: Arial, sans-serif;
         line-height: 1.5;
+        position: relative;
+        z-index: 5;
       }
-      #${PANEL_ID} * { box-sizing: border-box; }
+
+      #${PANEL_ID} * {
+        box-sizing: border-box;
+      }
+
       #${PANEL_ID} .gj-success {
         font-size: 18px;
         font-weight: 700;
         margin: 0 0 8px;
       }
+
       #${PANEL_ID} .gj-alert {
         padding: 12px;
         border-radius: 9px;
@@ -122,6 +144,7 @@
         font-size: 13px;
         line-height: 1.6;
       }
+
       #${PANEL_ID} .gj-items {
         padding: 12px;
         background: #fff;
@@ -130,22 +153,32 @@
         margin: 12px 0;
         font-size: 13px;
       }
+
       #${PANEL_ID} .gj-item {
         padding: 10px 0;
         border-bottom: 1px solid #eee;
       }
-      #${PANEL_ID} .gj-item:last-child { border-bottom: 0; }
+
+      #${PANEL_ID} .gj-item:last-child {
+        border-bottom: 0;
+      }
+
       #${PANEL_ID} .gj-item-name {
         font-weight: 700;
         font-size: 14px;
         margin-bottom: 4px;
       }
-      #${PANEL_ID} .gj-muted { color: #625b50; }
+
+      #${PANEL_ID} .gj-muted {
+        color: #625b50;
+      }
+
       #${PANEL_ID} .gj-total {
         font-weight: 700;
         font-size: 15px;
         margin-top: 10px;
       }
+
       #${PANEL_ID} .gj-btn {
         display: block;
         width: 100%;
@@ -156,14 +189,25 @@
         font-size: 14px;
         font-weight: 700;
         cursor: pointer;
+        white-space: normal;
       }
-      #${PANEL_ID} .gj-copy { background: #211d16; color: #fff; }
-      #${PANEL_ID} .gj-ig { background: #d4af37; color: #211d16; }
+
+      #${PANEL_ID} .gj-copy {
+        background: #211d16;
+        color: #fff;
+      }
+
+      #${PANEL_ID} .gj-ig {
+        background: #d4af37;
+        color: #211d16;
+      }
+
       #${PANEL_ID} .gj-note {
         font-size: 12px;
         color: #625b50;
         margin: 10px 0 0;
       }
+
       #${PANEL_ID} .gj-copy-area {
         display: none;
         width: 100%;
@@ -208,6 +252,7 @@
     textarea.remove();
 
     if (!success) throw new Error("Copy failed");
+
     return true;
   }
 
@@ -221,6 +266,8 @@
         : [];
 
     const summary = panel.querySelector(".gj-items");
+    if (!summary) return;
+
     summary.replaceChildren();
 
     const number = document.createElement("div");
@@ -243,18 +290,23 @@
 
         const name = document.createElement("div");
         name.className = "gj-item-name";
-        name.textContent = item.product_name || item.name || "Phone Case";
+        name.textContent =
+          item.product_name || item.name || item.title || "Phone Case";
 
         const code = document.createElement("div");
         code.className = "gj-muted";
         code.textContent = "Style Code: " + (
-          item.product_code || item.style_code || item.product_id || "-"
+          item.product_code ||
+          item.style_code ||
+          item.product_id ||
+          item.sku ||
+          "-"
         );
 
         const model = document.createElement("div");
         model.className = "gj-muted";
         model.textContent = "iPhone Model: " + (
-          item.phone_model || item.model || "-"
+          item.phone_model || item.model || item.iphone_model || "-"
         );
 
         const quantity = document.createElement("div");
@@ -274,6 +326,37 @@
     summary.appendChild(total);
   }
 
+  function placePanel(panel) {
+    // 优先放在付款窗口内，避免插入上传控件内部。
+    const paymentCard = document.querySelector(
+      "#paymentOverlay .pay-card"
+    );
+
+    if (paymentCard) {
+      paymentCard.appendChild(panel);
+      return;
+    }
+
+    const status = document.querySelector("#proofUploadStatus");
+
+    if (status && status.parentNode) {
+      status.parentNode.insertBefore(panel, status.nextSibling);
+      return;
+    }
+
+    const uploadButton = document.querySelector("#uploadProofBtn");
+
+    if (uploadButton && uploadButton.parentNode) {
+      uploadButton.parentNode.insertBefore(
+        panel,
+        uploadButton.nextSibling
+      );
+      return;
+    }
+
+    document.body.appendChild(panel);
+  }
+
   function createPanel() {
     let panel = document.getElementById(PANEL_ID);
 
@@ -289,16 +372,17 @@
 
     const title = document.createElement("p");
     title.className = "gj-success";
-    title.textContent = "Payment Proof Upload Successful!";
+    title.textContent =
+      "Payment Proof Upload Successful!｜付款凭证上传成功！";
 
     const intro = document.createElement("div");
     intro.textContent =
-      "Your order details are shown below. Please send them to us on Instagram DM so we can confirm your order.";
+      "Your order details are shown below. Please copy them and send them to us on Instagram DM so we can confirm your order.｜请复制以下订单资料，并发送到我们的 Instagram 私信，以便我们确认订单。";
 
     const alert = document.createElement("div");
     alert.className = "gj-alert";
     alert.textContent =
-      "IMPORTANT: 1. Tap “Copy Order Details”. 2. Tap “Go to Instagram DM”. 3. In our chat, press and hold the message box, tap Paste, then press Send. Your order is not fully submitted until you send us your order details.";
+      "IMPORTANT｜重要：1. Tap “Copy Order Details” to copy your order.｜点击复制订单资料。 2. Tap “Go to Instagram DM”.｜点击前往 Instagram 私信。 3. Paste the details into our chat and press Send.｜在聊天框粘贴资料并按发送。 Please make sure you send the message.｜请务必发送消息。";
 
     const summary = document.createElement("div");
     summary.className = "gj-items";
@@ -316,31 +400,36 @@
     const note = document.createElement("p");
     note.className = "gj-note";
     note.textContent =
-      "Remember to paste and SEND your copied order details in Instagram DM.";
+      "After copying, open Instagram DM, paste the details and press Send.｜复制后，请前往 Instagram 私信，粘贴资料并发送。";
 
     const manualArea = document.createElement("textarea");
     manualArea.className = "gj-copy-area";
     manualArea.readOnly = true;
-    manualArea.setAttribute("aria-label", "Order details to copy manually");
+    manualArea.setAttribute(
+      "aria-label",
+      "Order details to copy manually"
+    );
 
     copyButton.addEventListener("click", async function () {
       const message = getOrderMessage();
 
       try {
         await copyText(message);
-        copyButton.textContent = "Copied! Now open Instagram DM ✓";
+        copyButton.textContent =
+          "Copied!｜已复制 ✓";
         manualArea.style.display = "none";
         note.textContent =
-          "Copied successfully. Tap “Go to Instagram DM”, paste the message, and press Send.";
+          "Copied successfully. Open Instagram DM, paste the message, and press Send.｜复制成功，请前往 Instagram 私信粘贴并发送。";
       } catch (error) {
         manualArea.value = message;
         manualArea.style.display = "block";
         manualArea.focus();
         manualArea.select();
 
-        copyButton.textContent = "Select the text below to copy";
+        copyButton.textContent =
+          "Select the text below to copy｜请手动复制下方资料";
         note.textContent =
-          "Automatic copy was blocked. Select the text below and copy it, then open Instagram DM and paste it.";
+          "Automatic copy was blocked. Select and copy the text below, then paste it in Instagram DM.｜自动复制未成功，请手动复制下方资料，再粘贴到 Instagram 私信。";
       }
     });
 
@@ -359,19 +448,7 @@
       manualArea
     );
 
-    const status = document.querySelector("#proofUploadStatus");
-    const target = status && status.parentNode
-      ? status
-      : document.querySelector("#uploadProofBtn") ||
-        document.querySelector("button[type='submit']");
-
-    if (target && target.parentNode) {
-      target.parentNode.insertBefore(panel, target.nextSibling);
-    } else {
-      const paymentCard = document.querySelector("#paymentOverlay .pay-card");
-      (paymentCard || document.body).appendChild(panel);
-    }
-
+    placePanel(panel);
     renderOrderSummary(panel);
   }
 
@@ -379,26 +456,76 @@
     const status = document.querySelector("#proofUploadStatus");
     const uploadButton = document.querySelector("#uploadProofBtn");
 
-    const statusText = status ? status.textContent.toLowerCase() : "";
-    const buttonText = uploadButton ? uploadButton.textContent.toLowerCase() : "";
+    const statusText = status
+      ? String(status.textContent || "").trim().toLowerCase()
+      : "";
+
+    const buttonText = uploadButton
+      ? String(uploadButton.textContent || "").trim().toLowerCase()
+      : "";
 
     const success =
-      /upload\s*success|uploaded|successfully uploaded|凭证已上传|上传成功/.test(statusText) ||
-      /uploaded|已上传/.test(buttonText);
+      /receipt uploaded|upload\s*success|uploaded successfully|successfully uploaded|凭证已上传|已上传凭证|上传成功/.test(statusText) ||
+      /^(uploaded|已上传)(\s|✓|$)/.test(buttonText) ||
+      /uploaded/.test(buttonText) ||
+      /已上传/.test(buttonText);
 
-    if (success) createPanel();
+    if (success) {
+      createPanel();
+    }
+  }
+
+  function startRetryCheck() {
+    if (retryTimer) {
+      window.clearInterval(retryTimer);
+    }
+
+    let attempts = 0;
+
+    retryTimer = window.setInterval(function () {
+      checkUploadStatus();
+      attempts++;
+
+      if (
+        document.getElementById(PANEL_ID) ||
+        attempts >= 40
+      ) {
+        window.clearInterval(retryTimer);
+        retryTimer = null;
+      }
+    }, 500);
   }
 
   function init() {
     checkUploadStatus();
 
-    const observer = new MutationObserver(checkUploadStatus);
+    if (observer) {
+      observer.disconnect();
+    }
+
+    observer = new MutationObserver(function () {
+      checkUploadStatus();
+    });
+
     observer.observe(document.body, {
       childList: true,
       subtree: true,
       characterData: true,
       attributes: true
     });
+
+    // 顾客点击上传凭证后，额外检查上传结果，避免状态更新延迟。
+    document.addEventListener("click", function (event) {
+      const target = event.target;
+
+      if (
+        target &&
+        typeof target.closest === "function" &&
+        target.closest("#uploadProofBtn")
+      ) {
+        startRetryCheck();
+      }
+    }, true);
   }
 
   if (document.readyState === "loading") {
