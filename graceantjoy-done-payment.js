@@ -175,7 +175,7 @@
     done.type = "button";
     done.textContent = text(
       "Done Payment — View Order Details",
-      "已完成付款 — 查看订单资料"
+      "已完成付款 — 请复制以下订单给我们"
     );
 
     const panel = document.createElement("div");
