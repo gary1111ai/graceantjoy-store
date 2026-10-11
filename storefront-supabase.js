@@ -38,20 +38,38 @@
 
       products = (data || []).map((p) => ({
         id: p.id,
+
+        // Use the product code entered in Admin, e.g. "001".
+        productCode: String(p.product_code ?? "").trim(),
+
         name: p.name,
         description: p.description || "",
         price: Number(p.price),
+
         salePrice:
           p.compare_at_price !== null &&
           Number(p.compare_at_price) < Number(p.price)
             ? Number(p.compare_at_price)
             : null,
+
         stock: Number(p.stock || 0),
         image: p.image_url || "",
         brand: p.brand || "Graceantjoy",
         style: p.style || p.category || "New Arrivals",
         material: p.material || "Hard Case",
-        models: p.models || []
+
+        models: Array.isArray(p.models)
+          ? p.models
+          : typeof p.models === "string"
+            ? p.models
+                .split(",")
+                .map((model) => model.trim())
+                .filter(Boolean)
+            : [],
+
+        promoQuantity: Number(p.promo_quantity || 2),
+        promoPrice: Number(p.promo_price || 35),
+        mixMatch: Boolean(p.promo_mix_match)
       }));
 
       render();
