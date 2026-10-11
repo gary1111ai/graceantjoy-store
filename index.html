@@ -15,35 +15,289 @@ main{max-width:620px;margin:8vh auto;background:#fff5f7;border-radius:18px;paddi
   <strong>Graceantjoy</strong>
   <p id="status">Loading store…</p>
 </main>
+
 <script>
 (async function () {
-  const status = document.getElementById('status');
-  const sourceUrl = 'https://raw.githubusercontent.com/gary1111ai/graceantjoy-store/2e3fc9cd9c8e04f28152840c7b64db85a4e56e24/index.html';
+  const status = document.getElementById("status");
+  const sourceUrl =
+    "https://raw.githubusercontent.com/gary1111ai/graceantjoy-store/2e3fc9cd9c8e04f28152840c7b64db85a4e56e24/index.html";
+
   try {
-    const response = await fetch(sourceUrl, { cache: 'no-store' });
-    if (!response.ok) throw new Error('Could not load the original storefront (' + response.status + ').');
-    let html = await response.text();
-    const replacements = [
-      ['<div class="filters"><input class="field" id="search" placeholder="Search cases or phone model"><select class="field" id="styleFilter"><option value="">All styles</option></select><select class="field" id="materialFilter"><option value="">All materials</option><option>Hard Case</option><option>Soft Case</option><option>Other</option></select><select class="field" id="brandFilter"><option value="">All phone brands</option><option>Apple</option><option>Samsung</option><option>Huawei</option><option>Xiaomi</option><option>Other</option></select></div>', '<div class="filters"><input class="field" id="search" placeholder="Search cases or phone model"><select class="field" id="styleFilter"><option value="">All styles</option></select></div>'],
-      ['.filters{display:grid;grid-template-columns:1fr 170px 170px 170px;gap:9px;margin-bottom:18px}', '.filters{display:grid;grid-template-columns:1fr 170px;gap:9px;margin-bottom:18px}'],
-      ["var q=$('search').value.trim().toLowerCase(),style=$('styleFilter').value,mat=$('materialFilter').value,brand=$('brandFilter').value;var list=products.filter(p=>(!q||[p.name,p.style,p.material,p.brand,p.description,...(p.models||[])].join(' ').toLowerCase().includes(q))&&(!style||p.style===style)&&(!mat||p.material===mat)&&(!brand||p.brand===brand));", "var q=$('search').value.trim().toLowerCase(),style=$('styleFilter').value;var list=products.filter(p=>(!q||[p.name,p.style,p.material,p.brand,p.description,...(p.models||[])].join(' ').toLowerCase().includes(q))&&(!style||p.style===style));"],
-      ["+' · '+safe(p.material||'Case')+'</div><h3>", "+'</div><h3>"],
-      ["['search','styleFilter','materialFilter','brandFilter']", "['search','styleFilter']"],
-      ["$('materialFilter').options[0].text=t('allMaterials');$('brandFilter').options[0].text=t('allBrands');", ""]
-    ];
-    for (const [before, after] of replacements) {
-      if (!html.includes(before)) throw new Error('The source storefront has changed; safe automatic editing stopped.');
-      html = html.replace(before, after);
+    const response = await fetch(sourceUrl, { cache: "no-store" });
+
+    if (!response.ok) {
+      throw new Error(
+        "Could not load the original storefront (" +
+        response.status + ")."
+      );
     }
-    if (html.includes('id="materialFilter"') || html.includes('id="brandFilter"') || html.includes("safe(p.material||'Case')")) throw new Error('Material and phone-brand filters were not fully removed; automatic editing stopped.');
-    if (!html.includes('</body>')) throw new Error('Could not find the storefront body end tag.');
-    const scripts = '<script src="./graceantjoy-ig-order-notification.js"><' + '/script><script src="./graceantjoy-my-orders.js"><' + '/script></body>';
-    html = html.replace('</body>', scripts);
+
+    let html = await response.text();
+
+    /*
+     * 修复付款凭证上传：
+     * 1. 上传图片最多等待30秒。
+     * 2. 保存凭证关联最多等待20秒。
+     * 3. 显示具体错误，失败后允许重试。
+     */
+    const uploadStartMarker =
+      "$('uploadProofBtn').addEventListener('click',async function(){";
+
+    const uploadEndMarker =
+      "finally{btn.disabled=false}});";
+
+    const uploadStart = html.indexOf(uploadStartMarker);
+    const uploadEnd = html.indexOf(
+      uploadEndMarker,
+      uploadStart
+    );
+
+    if (uploadStart === -1 || uploadEnd === -1) {
+      throw new Error(
+        "Could not find the original payment upload handler. " +
+        "The source storefront may have changed."
+      );
+    }
+
+    const replacementUploadHandler = `
+$('uploadProofBtn').addEventListener('click', async function () {
+  var file = $('paymentProofFile').files[0];
+
+  if (!file) {
+    $('proofUploadStatus').textContent = t('proofChoose');
+    return;
+  }
+
+  if (
+    !/^image\\/(jpeg|png|webp)$/.test(file.type) ||
+    file.size > 5 * 1024 * 1024
+  ) {
+    $('proofUploadStatus').textContent = t('proofChoose');
+    return;
+  }
+
+  if (!currentOrderNumber || !currentProofToken) {
+    $('proofUploadStatus').textContent =
+      t('proofUploadFail') +
+      'Order session not found. Please contact Graceantjoy with your order number.';
+    return;
+  }
+
+  var btn = $('uploadProofBtn');
+  var completed = false;
+
+  function waitWithTimeout(promise, label, milliseconds) {
+    return new Promise(function (resolve, reject) {
+      var timer = setTimeout(function () {
+        reject(new Error(
+          label + ' timed out after ' +
+          Math.round(milliseconds / 1000) +
+          ' seconds. Please check your connection and Supabase settings, then try again.'
+        ));
+      }, milliseconds);
+
+      Promise.resolve(promise).then(
+        function (value) {
+          clearTimeout(timer);
+          resolve(value);
+        },
+        function (error) {
+          clearTimeout(timer);
+          reject(error);
+        }
+      );
+    });
+  }
+
+  btn.disabled = true;
+  btn.textContent = lang === 'zh' ? '正在上传…' : 'Uploading…';
+
+  $('proofUploadStatus').style.color = '#625b50';
+  $('proofUploadStatus').textContent = t('proofUploading');
+
+  try {
+    if (
+      !window.supabase ||
+      typeof window.supabase.createClient !== 'function'
+    ) {
+      throw new Error(
+        'Supabase client is not loaded. Please refresh the page and try again.'
+      );
+    }
+
+    var db = window.supabase.createClient(
+      'https://udpjnirtmuzmiwmgelua.supabase.co',
+      'sb_publishable_IpMDj4zQ9B3GuMW4JAH0SA_MgqdDC0G'
+    );
+
+    var ext =
+      file.type === 'image/png'
+        ? 'png'
+        : file.type === 'image/webp'
+          ? 'webp'
+          : 'jpg';
+
+    var path =
+      currentProofToken + '/' +
+      crypto.randomUUID() + '.' + ext;
+
+    $('proofUploadStatus').textContent =
+      lang === 'zh'
+        ? '正在上传图片，请稍候…'
+        : 'Uploading image, please wait…';
+
+    var uploaded = await waitWithTimeout(
+      db.storage
+        .from('payment-proofs')
+        .upload(path, file, {
+          upsert: false,
+          contentType: file.type
+        }),
+      'Payment proof image upload',
+      30000
+    );
+
+    if (uploaded.error) {
+      throw uploaded.error;
+    }
+
+    $('proofUploadStatus').textContent =
+      lang === 'zh'
+        ? '图片已上传，正在保存订单凭证记录…'
+        : 'Image uploaded. Saving payment proof record…';
+
+    var saved = await waitWithTimeout(
+      db.rpc('save_payment_proof', {
+        p_order_number: currentOrderNumber,
+        p_proof_token: currentProofToken,
+        p_storage_path: path
+      }),
+      'Saving payment proof record',
+      20000
+    );
+
+    if (saved.error) {
+      throw saved.error;
+    }
+
+    completed = true;
+
+    $('proofUploadStatus').textContent =
+      (lang === 'zh'
+        ? '凭证已上传，我们会核对到账情况。'
+        : 'Receipt uploaded. We will verify your payment.') +
+      ' Order: ' + currentOrderNumber + ' ✓';
+
+    $('proofUploadStatus').style.color = '#207245';
+
+    btn.textContent =
+      lang === 'zh' ? '已上传 ✓' : 'Uploaded ✓';
+
+    btn.disabled = true;
+    $('paymentProofFile').value = '';
+
+  } catch (err) {
+    console.error('Payment proof upload failed:', err);
+
+    var errorMessage =
+      err && err.message
+        ? err.message
+        : 'Unknown error. Please try again.';
+
+    $('proofUploadStatus').style.color = '#b42318';
+
+    $('proofUploadStatus').textContent =
+      (lang === 'zh'
+        ? '上传失败：'
+        : 'Upload failed: ') +
+      errorMessage;
+
+    btn.textContent =
+      lang === 'zh' ? '重新上传凭证' : 'Retry Upload';
+
+  } finally {
+    if (!completed) {
+      btn.disabled = false;
+    }
+  }
+});
+`;
+
+    html =
+      html.slice(0, uploadStart) +
+      replacementUploadHandler +
+      html.slice(uploadEnd + uploadEndMarker.length);
+
+    const replacements = [
+      [
+        '<div class="filters"><input class="field" id="search" placeholder="Search cases or phone model"><select class="field" id="styleFilter"><option value="">All styles</option></select><select class="field" id="materialFilter"><option value="">All materials</option><option>Hard Case</option><option>Soft Case</option><option>Other</option></select><select class="field" id="brandFilter"><option value="">All phone brands</option><option>Apple</option><option>Samsung</option><option>Huawei</option><option>Xiaomi</option><option>Other</option></select></div>',
+        '<div class="filters"><input class="field" id="search" placeholder="Search cases or phone model"><select class="field" id="styleFilter"><option value="">All styles</option></select></div>'
+      ],
+      [
+        '.filters{display:grid;grid-template-columns:1fr 170px 170px 170px;gap:9px;margin-bottom:18px}',
+        '.filters{display:grid;grid-template-columns:1fr 170px;gap:9px;margin-bottom:18px}'
+      ],
+      [
+        "var q=$('search').value.trim().toLowerCase(),style=$('styleFilter').value,mat=$('materialFilter').value,brand=$('brandFilter').value;var list=products.filter(p=>(!q||[p.name,p.style,p.material,p.brand,p.description,...(p.models||[])].join(' ').toLowerCase().includes(q))&&(!style||p.style===style)&&(!mat||p.material===mat)&&(!brand||p.brand===brand));",
+        "var q=$('search').value.trim().toLowerCase(),style=$('styleFilter').value;var list=products.filter(p=>(!q||[p.name,p.style,p.material,p.brand,p.description,...(p.models||[])].join(' ').toLowerCase().includes(q))&&(!style||p.style===style));"
+      ],
+      [
+        "+' · '+safe(p.material||'Case')+'</div><h3>",
+        "+'</div><h3>"
+      ],
+      [
+        "['search','styleFilter','materialFilter','brandFilter']",
+        "['search','styleFilter']"
+      ],
+      [
+        "$('materialFilter').options[0].text=t('allMaterials');$('brandFilter').options[0].text=t('allBrands');",
+        ""
+      ]
+    ];
+
+    for (const pair of replacements) {
+      if (!html.includes(pair[0])) {
+        throw new Error(
+          "A storefront modification could not be applied safely. " +
+          "No modified page was displayed."
+        );
+      }
+
+      html = html.replace(pair[0], pair[1]);
+    }
+
+    if (
+      html.includes('id="materialFilter"') ||
+      html.includes('id="brandFilter"') ||
+      html.includes("safe(p.material||'Case')")
+    ) {
+      throw new Error(
+        "Material and phone-brand filters were not fully removed."
+      );
+    }
+
+    if (!html.includes("</body>")) {
+      throw new Error("Could not find the storefront body end tag.");
+    }
+
+    const scripts =
+      '<script src="./graceantjoy-ig-order-notification.js"><' +
+      '/script><script src="./graceantjoy-my-orders.js"><' +
+      '/script></body>';
+
+    html = html.replace("</body>", scripts);
+
     document.open();
     document.write(html);
     document.close();
+
   } catch (error) {
-    status.textContent = 'The store could not load automatically. Please check index.html, graceantjoy-ig-order-notification.js and graceantjoy-my-orders.js. Details: ' + error.message;
+    console.error("Graceantjoy storefront loading failed:", error);
+
+    status.textContent =
+      "The store could not load: " +
+      error.message +
+      " Please check index.html and the linked JavaScript files.";
   }
 })();
 </script>
