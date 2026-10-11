@@ -174,7 +174,7 @@
     done.id = "gj-done-payment-button";
     done.type = "button";
     done.textContent = text(
-      "Done Payment — View Order Details",
+      "Done Payment — please copy details below to us",
       "已完成付款 — 请复制以下订单给我们"
     );
 
