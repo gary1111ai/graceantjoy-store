@@ -189,6 +189,125 @@ $('uploadProofBtn').addEventListener('click', async function () {
       ' Order: ' + currentOrderNumber + ' ✓';
 
     $('proofUploadStatus').style.color = '#207245';
+    var orderData = Array.isArray(orders)
+  ? orders.find(function (o) {
+      return String(o.id || o.order_number) ===
+        String(currentOrderNumber);
+    })
+  : null;
+
+var oldPanel = document.getElementById('igOrderConfirmation');
+if (oldPanel) oldPanel.remove();
+
+var panel = document.createElement('div');
+panel.id = 'igOrderConfirmation';
+panel.style.cssText =
+  'margin-top:18px;padding:18px;border:1px solid #eedde3;' +
+  'border-radius:14px;background:#fff5f7;color:#30272b;';
+
+var heading = document.createElement('h3');
+heading.textContent =
+  lang === 'zh' ? '订单已确认上传 ♡' : 'Order Details ♡';
+heading.style.cssText =
+  'font-size:20px;margin:0 0 8px;';
+
+var instruction = document.createElement('p');
+instruction.textContent =
+  lang === 'zh'
+    ? '请复制以下订单资料，然后点击 Instagram DM，将资料粘贴并发送给我们。'
+    : 'Please copy your order details, open Instagram DM, paste the details and send them to us.';
+instruction.style.cssText =
+  'font-size:13px;line-height:1.7;margin:0 0 14px;';
+
+var orderLines = [
+  'Graceantjoy Order Details',
+  'Order No: ' + currentOrderNumber,
+  ''
+];
+
+if (orderData && Array.isArray(orderData.items)) {
+  orderData.items.forEach(function (item, index) {
+    orderLines.push(
+      'Product ' + (index + 1) + ': ' +
+        (item.product_name || item.name || 'Phone Case'),
+      'Style Code: ' +
+        (item.product_code || item.style_code || '-'),
+      'Phone Model: ' +
+        (item.phone_model || item.model || '-'),
+      'Quantity: ' + Number(item.quantity || 0),
+      'Item Total: ' + money(
+        item.subtotal != null
+          ? item.subtotal
+          : Number(item.unit_price || 0) *
+            Number(item.quantity || 0)
+      ),
+      ''
+    );
+  });
+
+  orderLines.push(
+    'Subtotal: ' + money(orderData.subtotal),
+    'Shipping: ' + money(orderData.shipping_fee),
+    'Total: ' + money(orderData.total)
+  );
+} else {
+  orderLines.push(
+    'Total: ' + $('paymentTotal').textContent
+  );
+}
+
+var orderText = orderLines.join('\\n');
+
+var details = document.createElement('pre');
+details.textContent = orderText;
+details.style.cssText =
+  'white-space:pre-wrap;overflow-wrap:anywhere;' +
+  'font:12px/1.8 Arial,sans-serif;background:#fff;' +
+  'padding:12px;border-radius:9px;border:1px solid #eedde3;';
+
+var copyButton = document.createElement('button');
+copyButton.type = 'button';
+copyButton.className = 'primary';
+copyButton.style.cssText =
+  'width:100%;margin:8px 0 10px;';
+copyButton.textContent =
+  lang === 'zh' ? '复制订单资料' : 'Copy Order Details';
+
+copyButton.onclick = async function () {
+  try {
+    await navigator.clipboard.writeText(orderText);
+    copyButton.textContent =
+      lang === 'zh' ? '已复制 ✓' : 'Copied ✓';
+  } catch (err) {
+    window.prompt(
+      lang === 'zh'
+        ? '请手动复制以下订单资料：'
+        : 'Please copy your order details:',
+      orderText
+    );
+  }
+};
+
+var dmButton = document.createElement('a');
+dmButton.href = 'https://ig.me/m/graceantjoy';
+dmButton.target = '_blank';
+dmButton.rel = 'noopener noreferrer';
+dmButton.className = 'primary';
+dmButton.style.cssText =
+  'display:block;width:100%;box-sizing:border-box;' +
+  'text-align:center;text-decoration:none;margin-top:4px;';
+dmButton.textContent =
+  lang === 'zh'
+    ? '前往 Instagram DM 发送订单 →'
+    : 'Continue to Instagram DM →';
+
+panel.appendChild(heading);
+panel.appendChild(instruction);
+panel.appendChild(details);
+panel.appendChild(copyButton);
+panel.appendChild(dmButton);
+
+$('proofUploadStatus').parentNode.appendChild(panel);
 
     btn.textContent =
       lang === 'zh' ? '已上传 ✓' : 'Uploaded ✓';
