@@ -130,14 +130,24 @@ body.gj-cart-open #gj-floating-bag{display:none!important}
     document.body.appendChild(floating);
     function updateCount(){
       const badge=document.getElementById("gj-floating-bag-count");if(!badge)return;
-      const lines=cartOverlay?cartOverlay.querySelectorAll(".cart-line"):[];
       let count=0;
-      lines.forEach(line=>{
-        const qtyText=(line.querySelector(".gj-cart-product-info small")||line.querySelector("small")||line).innerText||"";
-        /* Cart rows render quantity first: "2 × RM 19.90". Count units, not rows. */
-        const match=qtyText.match(/(?:^|\s)(\d+)\s*[×x]\s*(?:RM|MYR|[$€£])/i)||qtyText.match(/(?:^|\s)(\d+)\s*[×x]\s*/i);
-        count+=match?Number(match[1]):1;
-      });
+      /* Use the actual cart data, not the number of visible product rows.
+         gj_cart_v2 stores one entry per product+model, with qty as unit count. */
+      try{
+        const saved=JSON.parse(localStorage.getItem("gj_cart_v2")||"[]");
+        if(Array.isArray(saved))count=saved.reduce((sum,item)=>sum+Math.max(0,Math.floor(Number(item&&item.qty)||0)),0);
+      }catch(error){count=0;}
+      /* If storage is unavailable, fall back to the quantity printed in each cart row. */
+      if(!count&&cartOverlay){
+        const lines=cartOverlay.querySelectorAll(".cart-line");
+        lines.forEach(line=>{
+          const qtyElement=line.querySelector(".cart-qty strong");
+          if(qtyElement){count+=Math.max(0,Math.floor(Number(qtyElement.textContent)||0));return;}
+          const qtyText=(line.querySelector(".gj-cart-product-info small")||line.querySelector("small")||line).innerText||"";
+          const match=qtyText.match(/(?:^|\s)(\d+)\s*[×x]\s*(?:RM|MYR|[$€£])/i)||qtyText.match(/(?:^|\s)(\d+)\s*[×x]\s*/i);
+          count+=match?Number(match[1]):1;
+        });
+      }
       if(count>0){badge.textContent=count>99?"99+":String(count);badge.style.display="block"}else{badge.textContent="";badge.style.display="none"}
     }
     if(cartOverlay){const observer=new MutationObserver(updateCount);observer.observe(cartOverlay,{subtree:true,childList:true,characterData:true,attributes:true});}
