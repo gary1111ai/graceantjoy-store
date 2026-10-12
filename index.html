@@ -94,19 +94,25 @@ main{max-width:620px;margin:8vh auto;background:#fff;border-radius:18px;padding:
     const enhancement = `
 <style id="gj-store-enhancements">
 /* The bag remains reachable while the customer scrolls. */
-#cartOpen{position:fixed!important;top:18px!important;right:12px!important;z-index:10050!important;box-shadow:0 5px 22px #5e33431c;background:#fffdfd!important}
+/* Keep the original bag button in the header beside language/order controls. */
+#cartOpen{position:relative!important;top:auto!important;right:auto!important;z-index:10!important;box-shadow:none!important;background:transparent!important}
 .header{padding-right:0}
-body.gj-cart-open #cartOpen{display:none!important}
+/* Second, always-accessible floating bag on the right side. */
+#gj-floating-bag{position:fixed;right:14px;top:62%;transform:translateY(-50%);z-index:10040;width:54px;height:54px;border:1px solid #f0dce4;border-radius:50%;background:#fffdfd;color:#30272b;box-shadow:0 7px 24px #5e334326;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .18s ease,box-shadow .18s ease}
+#gj-floating-bag:active{transform:translateY(-50%) scale(.93)}
+#gj-floating-bag svg{width:23px;height:23px;display:block}
+#gj-floating-bag-count{position:absolute;top:-5px;right:-4px;min-width:21px;height:21px;padding:0 5px;box-sizing:border-box;border-radius:999px;background:#d96c91;color:#fff;font:700 11px/21px Arial,sans-serif;text-align:center;border:2px solid #fff;display:none}
+body.gj-cart-open #gj-floating-bag{display:none!important}
 .cart-product{display:grid;grid-template-columns:64px minmax(0,1fr);align-items:start;gap:10px}
 .gj-cart-thumb{width:64px;height:84px;object-fit:contain;background:#fff5f7;border:1px solid #eedde3;border-radius:9px;display:block}
 .gj-cart-product-info{min-width:0}
 .gj-cart-product-info strong{display:block;overflow-wrap:anywhere}
 .gj-cart-product-info small{display:block}
-.gj-added-toast{position:fixed;top:66px;right:12px;z-index:10060;background:#30272b;color:#fff;padding:12px 16px;border-radius:12px;box-shadow:0 8px 28px #0002;font-size:13px;max-width:min(88vw,340px);animation:gjToastIn .22s ease-out}
+.gj-added-toast{position:fixed;top:auto;bottom:calc(38% + 42px);right:14px;z-index:10060;background:#30272b;color:#fff;padding:12px 16px;border-radius:12px;box-shadow:0 8px 28px #0002;font-size:13px;max-width:min(88vw,340px);animation:gjToastIn .22s ease-out}
 .gj-added-toast b{color:#ffd8e5}
 @keyframes gjToastIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
 #gj-my-orders-modal .gj-mo-item-image{display:block;width:94px;height:118px;object-fit:contain;background:#fff5f7;border:1px solid #eedde3;border-radius:10px;margin:0 0 10px}
-@media(max-width:480px){.header{padding-right:0}.cart-product{grid-template-columns:56px minmax(0,1fr);gap:8px}.gj-cart-thumb{width:56px;height:74px}#cartOpen{top:18px!important;right:8px!important}}
+@media(max-width:480px){.header{padding-right:0}.cart-product{grid-template-columns:56px minmax(0,1fr);gap:8px}.gj-cart-thumb{width:56px;height:74px}#gj-floating-bag{right:12px;width:50px;height:50px;top:62%}}
 </style>
 <script>
 (function(){
@@ -115,6 +121,25 @@ body.gj-cart-open #cartOpen{display:none!important}
   function syncCartButton(){
     document.body.classList.toggle("gj-cart-open",!!(cartOverlay&&cartOverlay.classList.contains("open")));
   }
+  function installFloatingBag(){
+    if(document.getElementById("gj-floating-bag")||!cartButton)return;
+    const floating=document.createElement("button");
+    floating.type="button";floating.id="gj-floating-bag";floating.setAttribute("aria-label","Open shopping bag");
+    floating.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14l1 12H4L5 8Z"></path><path d="M9 8V6a3 3 0 0 1 6 0v2"></path></svg><span id="gj-floating-bag-count"></span>';
+    floating.addEventListener("click",()=>cartButton.click());
+    document.body.appendChild(floating);
+    function updateCount(){
+      const badge=document.getElementById("gj-floating-bag-count");if(!badge)return;
+      const lines=cartOverlay?cartOverlay.querySelectorAll(".cart-line"):[];
+      let count=0;
+      lines.forEach(line=>{const txt=line.innerText||"";const match=txt.match(/(?:×|x)\s*(\d+)/i);count+=match?Number(match[1]):1});
+      if(count>0){badge.textContent=count>99?"99+":String(count);badge.style.display="block"}else{badge.textContent="";badge.style.display="none"}
+    }
+    if(cartOverlay){const observer=new MutationObserver(updateCount);observer.observe(cartOverlay,{subtree:true,childList:true,characterData:true,attributes:true});}
+    document.addEventListener("click",()=>setTimeout(updateCount,100),true);
+    window.gjUpdateFloatingBagCount=updateCount;updateCount();
+  }
+  installFloatingBag();
   if(cartButton&&cartOverlay){
     const observer=new MutationObserver(syncCartButton);
     observer.observe(cartOverlay,{attributes:true,attributeFilter:["class"]});
@@ -136,8 +161,9 @@ window.gjShowAddedToast=function(product,model,qty){
   toast.innerHTML='<b>✓ Added to bag</b><br><span></span>';
   toast.querySelector("span").textContent=name+" · "+model+" × "+qty;
   document.body.appendChild(toast);
-  const button=document.getElementById("cartOpen");
-  if(button){button.animate([{transform:"scale(1)"},{transform:"scale(1.1)"},{transform:"scale(1)"}],{duration:380,easing:"ease-out"});}
+  const button=document.getElementById("gj-floating-bag");
+  if(button){button.animate([{transform:"translateY(-50%) scale(1)"},{transform:"translateY(-50%) scale(1.12)"},{transform:"translateY(-50%) scale(1)"}],{duration:380,easing:"ease-out"});}
+  if(window.gjUpdateFloatingBagCount)window.gjUpdateFloatingBagCount();
   window.clearTimeout(window.gjToastTimer);window.gjToastTimer=window.setTimeout(()=>toast.remove(),2800);
 };
 <\/script>`;
