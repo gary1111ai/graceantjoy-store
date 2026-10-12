@@ -94,8 +94,9 @@ main{max-width:620px;margin:8vh auto;background:#fff;border-radius:18px;padding:
     const enhancement = `
 <style id="gj-store-enhancements">
 /* The bag remains reachable while the customer scrolls. */
-#cartOpen{position:fixed!important;top:12px!important;right:12px!important;z-index:10050!important;box-shadow:0 5px 22px #5e33431c;background:#fffdfd!important}
-.header{padding-right:100px}
+#cartOpen{position:fixed!important;top:18px!important;right:12px!important;z-index:10050!important;box-shadow:0 5px 22px #5e33431c;background:#fffdfd!important}
+.header{padding-right:0}
+body.gj-cart-open #cartOpen{display:none!important}
 .cart-product{display:grid;grid-template-columns:64px minmax(0,1fr);align-items:start;gap:10px}
 .gj-cart-thumb{width:64px;height:84px;object-fit:contain;background:#fff5f7;border:1px solid #eedde3;border-radius:9px;display:block}
 .gj-cart-product-info{min-width:0}
@@ -105,9 +106,29 @@ main{max-width:620px;margin:8vh auto;background:#fff;border-radius:18px;padding:
 .gj-added-toast b{color:#ffd8e5}
 @keyframes gjToastIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
 #gj-my-orders-modal .gj-mo-item-image{display:block;width:94px;height:118px;object-fit:contain;background:#fff5f7;border:1px solid #eedde3;border-radius:10px;margin:0 0 10px}
-@media(max-width:480px){.header{padding-right:94px}.cart-product{grid-template-columns:56px minmax(0,1fr);gap:8px}.gj-cart-thumb{width:56px;height:74px}#cartOpen{top:8px!important;right:8px!important}}
+@media(max-width:480px){.header{padding-right:0}.cart-product{grid-template-columns:56px minmax(0,1fr);gap:8px}.gj-cart-thumb{width:56px;height:74px}#cartOpen{top:18px!important;right:8px!important}}
 </style>
 <script>
+(function(){
+  const cartButton=document.getElementById("cartOpen");
+  const cartOverlay=document.getElementById("cartOverlay");
+  function syncCartButton(){
+    document.body.classList.toggle("gj-cart-open",!!(cartOverlay&&cartOverlay.classList.contains("open")));
+  }
+  if(cartButton&&cartOverlay){
+    const observer=new MutationObserver(syncCartButton);
+    observer.observe(cartOverlay,{attributes:true,attributeFilter:["class"]});
+    cartButton.addEventListener("click",()=>requestAnimationFrame(syncCartButton));
+    document.addEventListener("click",event=>{
+      if(event.target.closest("[data-close='cartOverlay']"))requestAnimationFrame(syncCartButton);
+      if(event.target===cartOverlay)requestAnimationFrame(syncCartButton);
+    },true);
+    document.addEventListener("keydown",event=>{
+      if(event.key==="Escape")requestAnimationFrame(syncCartButton);
+    });
+    syncCartButton();
+  }
+})();
 window.gjShowAddedToast=function(product,model,qty){
   const old=document.getElementById("gj-added-toast");if(old)old.remove();
   const toast=document.createElement("div");toast.id="gj-added-toast";toast.className="gj-added-toast";
